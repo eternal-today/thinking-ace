@@ -1,0 +1,17 @@
+{
+  "name": "우리집 생각 에이스",
+  "short_name": "생각 에이스",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#effcfc",
+  "theme_color": "#0e828a",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
