@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Menu } from './types';
-import { BADGES, Milestone, actions, getState, seenTypes, useStore } from './engine/store';
-import { initCelebration, migrateThinkingRecords } from './ace/wallet';
+import { actions, getState, seenTypes, useStore } from './engine/store';
+import { migrateThinkingRecords } from './ace/wallet';
 import { startAceSync } from './ace/aceSync';
-import { AceRewardsSheet } from './ace/Rewards';
 import { confirmLeave } from './ace/SaveBar';
-import { Overlays, askPin, fireConfetti } from './components/ui';
+import { Overlays, askPin } from './components/ui';
 import { NamingSheet, StratSheet } from './components/thinking';
 import { areaTypes, buildPlan, newCountFor, pickNew } from './engine/round';
 import ChildHome from './screens/ChildHome';
@@ -16,8 +15,7 @@ import { Cards, Forest } from './screens/Extras';
 
 type View = 'home' | 'play' | 'forest' | 'cards';
 
-// 첫 화면 그리기 전에: 축하 목록 준비, 처음 한 번 이 기기의 생각 기록을 서버 대기열에
-initCelebration();
+// 처음 한 번 이 기기의 생각 기록을 서버 대기열에 (에이스 홈의 '오늘 푼 문제 수'용. 생각 에이스는 별을 주지 않음)
 migrateThinkingRecords();
 
 export default function App() {
@@ -29,8 +27,6 @@ export default function App() {
   const [strat, setStrat] = useState<string | null>(null);
   const [naming, setNaming] = useState(false);
   const [lastName, setLastName] = useState('');
-  const [milestone, setMilestone] = useState<Milestone | null>(null);
-  const [rewardsOpen, setRewardsOpen] = useState(false);
   const treeName = store.tree.name || '생각나무';
 
   useEffect(() => {
@@ -110,15 +106,14 @@ export default function App() {
             {view === 'home' && (
               <ChildHome
                 onParent={() => askPin('', () => setScreen('parent'))}
-                onDaily={startDaily} onArea={startArea} onRewards={() => setRewardsOpen(true)}
+                onDaily={startDaily} onArea={startArea}
                 onForest={() => setView('forest')} onCards={() => setView('cards')}
                 onRename={() => setNaming(true)}
                 onPlant={() => { setLastName(treeName); actions.plantNew(); }} />
             )}
             {view === 'play' && round && (
               <Play key={round.key} menu={round.menu} plan={round.plan} fresh={round.fresh}
-                onExit={toHome} onAgain={again}
-                onMilestone={m => { setMilestone(m); fireConfetti(m.hall ? 'epic' : m.value % 50 === 0 ? 'big' : 'normal'); }} />
+                onExit={toHome} onAgain={again} />
             )}
             {view === 'forest' && <Forest onBack={() => setView('home')} />}
             {view === 'cards' && <Cards onBack={() => setView('home')} onOpen={setStrat} />}
@@ -146,32 +141,6 @@ export default function App() {
           onSave={n => { actions.renameTree(n); setNaming(false); setLastName(''); }} />
       )}
 
-      {/* 내 보상 */}
-      <AceRewardsSheet open={rewardsOpen && screen === 'child'} onClose={() => setRewardsOpen(false)} childName={store.config.childName?.trim()} subject="thinking" badges={BADGES} />
-
-      {/* 번 별 10개마다 축하 */}
-      <AnimatePresence>
-        {milestone && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6" onClick={() => setMilestone(null)}>
-            <motion.div initial={{ scale: 0.5, y: 40 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.5, opacity: 0 }}
-              transition={{ type: 'spring', damping: 14 }} onClick={e => e.stopPropagation()}
-              className="bg-white rounded-[2.5rem] p-10 max-w-sm w-full text-center shadow-2xl">
-              <div className="text-7xl mb-4">{milestone.hall ? '👑' : milestone.badge ? '🏅' : '🎉'}</div>
-              <h2 className={`text-3xl font-black font-display mb-2 ${milestone.hall ? 'text-brand-600' : 'text-slate-900'}`}>
-                {milestone.hall ? '명예의 전당 입성!' : milestone.value ? `별 ${milestone.value}개를 모았어!` : '새 뱃지!'}
-              </h2>
-              {milestone.value > 0 && <p className="text-xs font-bold text-slate-400 mb-2">모든 과목에서 모은 별 {milestone.value}개</p>}
-              <p className="text-slate-500 font-medium">
-                {milestone.badge
-                  ? <>생각 뱃지 <strong className="text-brand-600">‘{milestone.badge}’</strong>를 받았어요!</>
-                  : milestone.hall ? <>진정한 에이스야 👑</> : <>정말 대단해! 계속 모아 보자 ⭐</>}
-              </p>
-              <button onClick={() => setMilestone(null)} className="btn-primary w-full mt-6 py-4 text-lg">좋아! 🙌</button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -34,11 +34,11 @@ export interface RoundRecord {
   ts: number;
   date: string;
   menu: Menu;
-  stars: number;
+  stars: number;          // 늘 0 (생각 에이스는 별을 주지 않음. 공통 지갑 형식에 맞춰 둠)
   correct: number;        // 도전 문제 포함
   total: number;
-  drops: number;          // 나무에 준 물 (별과 같은 수)
-  lowAcc: boolean;        // 정답률 40% 미만이라 별·물이 없던 판
+  drops: number;          // 나무에 준 물
+  lowAcc: boolean;        // 정답률 40% 미만이라 물이 없던 판
   hintsFree: number;
   hintsPaid: number;
   fresh: string[];        // 이 판에서 처음 만난 유형

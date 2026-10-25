@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight, Database, Eye, Gift, History, Home, KeyRound, Lightbulb, Lock, Settings, SlidersHorizontal, Star, Trash2, XCircle } from 'lucide-react';
 import { Config, RoundRecord, Steps } from '../types';
-import { COUNT_CHOICES, MIN_ACC, actions, earnedStars, seenTypes, useStore } from '../engine/store';
+import { COUNT_CHOICES, MIN_ACC, actions, seenTypes, useStore } from '../engine/store';
 import { AREAS, ALL_TYPES, AREA_OF, STEP_NAME, TYPE_NAME } from '../engine/areas';
 import { STAGES, kindOf, stageOf } from '../engine/tree';
 import { HINT_COST, couponState, coupons as aceCoupons, hubPin, mathWishCoupons, useWallet } from '../ace/wallet';
@@ -127,7 +127,7 @@ export default function Parent({ onHome, onPreview }: { onHome: () => void; onPr
                 <input type="range" min={0} max={COUNT_CHOICES.length - 1} step={1} value={COUNT_CHOICES.indexOf(draft.config.count)}
                   onChange={e => setCfg({ count: COUNT_CHOICES[+e.target.value] })} className="w-full accent-trust-600" />
                 <div className="flex justify-between text-[10px] font-bold text-slate-300">{COUNT_CHOICES.map(n => <span key={n}>{n}문제</span>)}</div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">마지막 한 문제는 도전 문제예요. 5문제 맞힐 때마다 별 1개와 물 한 방울을 받아요. 생각 문제는 한 문제가 오래 걸려서 20문제까지만 둬요.</p>
+                <p className="text-[11px] text-slate-400 leading-relaxed">마지막 한 문제는 도전 문제예요. 5문제 맞힐 때마다 나무에 물 한 방울을 줘요. 생각 문제는 한 문제가 오래 걸려서 20문제까지만 둬요.</p>
               </div>
               <div className="space-y-3">
                 <Label>물 주러 가기 한 판에 새로 나오는 문제 유형</Label>
@@ -200,17 +200,18 @@ export default function Parent({ onHome, onPreview }: { onHome: () => void; onPr
             </Card>
 
             <Card>
-              <Title icon={<Lightbulb size={18} className="text-amber-500" />}>힌트와 별</Title>
+              <Title icon={<Lightbulb size={18} className="text-amber-500" />}>힌트와 물</Title>
               <div className="space-y-2 text-sm text-slate-500 leading-relaxed">
-                <p>판마다 힌트 {FREE_HINTS}번을 무료로 줘요. 그 뒤로는 힌트 한 번에 <strong className="text-slate-700">별 {HINT_COST}개</strong>를 써요. (모든 에이스 같음)</p>
-                <p>보기를 고르는 문제가 많아서, 한 판 정답률이 {Math.round(MIN_ACC * 100)}% 미만이면 그 판은 별과 물을 주지 않아요. 결과 화면에서 "천천히 풀면 받을 수 있어"라고 알려 줘요.</p>
+                <p>생각 에이스는 <strong className="text-slate-700">별을 주지 않아요.</strong> 보상은 생각나무의 물(5문제 맞힐 때마다 한 방울)이에요.</p>
+                <p>판마다 힌트 {FREE_HINTS}번을 무료로 줘요. 그 뒤로는 힌트 한 번에 공통 지갑의 <strong className="text-slate-700">별 {HINT_COST}개</strong>를 써요 (다른 과목에서 번 별).</p>
+                <p>보기를 고르는 문제가 많아서, 한 판 정답률이 {Math.round(MIN_ACC * 100)}% 미만이면 그 판은 물을 주지 않아요. 결과 화면에서 "천천히 풀면 물을 줄 수 있어"라고 알려 줘요.</p>
               </div>
             </Card>
 
             <Card>
               <Title icon={<Eye size={18} className="text-trust-600" />}>아이 화면 체험하기</Title>
               <p className="text-sm text-slate-500 leading-relaxed">
-                모든 문제 유형이 바로 나오는 아이 화면으로 들어가요. 체험 중에 푼 문제는 별·물·기록·난이도에 남지 않고, 힌트도 별을 쓰지 않아요. 「부모님 해설」은 PIN 없이 열려요.
+                모든 문제 유형이 바로 나오는 아이 화면으로 들어가요. 체험 중에 푼 문제는 물·기록·난이도에 남지 않고, 힌트도 별을 쓰지 않아요. 「부모님 해설」은 PIN 없이 열려요.
                 화면 위의 「체험 끝내기」를 누르거나 30분이 지나면 아이 모드로 돌아가요.
               </p>
               <button className="btn-secondary w-full flex items-center justify-center gap-2" onClick={() => { if (!confirmLeave()) return; actions.setPreview(true); onPreview(); }}>
@@ -251,7 +252,7 @@ export default function Parent({ onHome, onPreview }: { onHome: () => void; onPr
               <Card dim>
                 <Title icon={<Database size={18} className="text-slate-400" />}>기록 백업</Title>
                 <p className="text-sm text-slate-500 leading-relaxed">
-                  판 기록(별 계산에 쓰는 것)은 수학 에이스에 연결한 동기화 서버로 올라가서 에이스 홈과 다른 기기에서도 별이 맞게 보여요. 설정과 PIN도 다른 기기와 맞춰져요. 나무·난이도·만난 유형은 이 기기에만 저장되니, 기기를 바꾸기 전에 백업 파일로 내려받아 두세요.
+                  판 기록은 수학 에이스에 연결한 동기화 서버로 올라가서 에이스 홈의 '오늘 푼 문제 수'에 쓰여요. 설정과 PIN도 다른 기기와 맞춰져요. 나무·난이도·만난 유형은 이 기기에만 저장되니, 기기를 바꾸기 전에 백업 파일로 내려받아 두세요.
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <button className="btn-secondary py-3 text-sm" onClick={exportBackup}>백업 파일 받기</button>
@@ -264,7 +265,7 @@ export default function Parent({ onHome, onPreview }: { onHome: () => void; onPr
                 <Title icon={<Trash2 size={18} className="text-slate-400" />}>기록 정리</Title>
                 <p className="text-sm text-slate-500 leading-relaxed">아이 모드로 시험해 본 기록을 지울 때 써요. 나무와 설정은 남아요. 지운 기록은 되돌릴 수 없어요.</p>
                 <button className="btn-secondary w-full py-3 text-sm text-rose-600" onClick={() => {
-                  if (!window.confirm('생각 학습 기록을 모두 지울까요?\n\n지우는 것: 판 기록(생각에서 번 별 포함), 난이도 진행, 만난 유형, 스무고개 메달\n남기는 것: 나무, 설정, PIN\n\n힌트로 쓴 별은 모든 과목이 함께 쓰는 장부에 있어서 되돌아오지 않아요.')) return;
+                  if (!window.confirm('생각 학습 기록을 모두 지울까요?\n\n지우는 것: 판 기록, 난이도 진행, 만난 유형, 스무고개 메달\n남기는 것: 나무, 설정, PIN\n\n힌트로 쓴 별은 모든 과목이 함께 쓰는 장부에 있어서 되돌아오지 않아요.')) return;
                   actions.resetLearning(); setDraft(d => ({ ...d, steps: Object.fromEntries(ALL_TYPES.map(k => [k, 0])) })); toast('생각 학습 기록을 지웠어요');
                 }}>생각 학습 기록 모두 지우기 (판 {store.records.length}개)</button>
               </Card>
@@ -276,7 +277,7 @@ export default function Parent({ onHome, onPreview }: { onHome: () => void; onPr
         {tab === 'chance' && (
           <div className="space-y-6 animate-slide-up">
             <div className="grid grid-cols-3 gap-3">
-              {([['남은 별 (합산)', wallet.balance, 'text-amber-600'], ['생각에서 번 별', earnedStars(store), 'text-emerald-600'], ['쓴 별 (합산)', wallet.spent, 'text-slate-600']] as const).map(([label, n, color]) => (
+              {([['남은 별 (합산)', wallet.balance, 'text-amber-600'], ['생각 힌트로 쓴 별', store.records.reduce((a, r) => a + (r.hintsPaid || 0), 0), 'text-emerald-600'], ['쓴 별 (합산)', wallet.spent, 'text-slate-600']] as const).map(([label, n, color]) => (
                 <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
                   <div className={`text-2xl font-black font-display ${color}`}>{n}</div>
                   <div className="text-[11px] font-bold text-slate-400 mt-1">{label}</div>
@@ -286,7 +287,7 @@ export default function Parent({ onHome, onPreview }: { onHome: () => void; onPr
             <Card>
               <Title icon={<Gift size={18} className="text-trust-600" />}>찬스와 쿠폰은 에이스 홈에서</Title>
               <p className="text-sm text-slate-500 leading-relaxed">
-                별은 모든 과목이 함께 쓰는 지갑 하나예요. 찬스 가게, 쿠폰 사용 처리, 잘못 산 쿠폰 되돌리기, 별 장부는 에이스 홈의 부모님 모드에서 해요.
+                생각 에이스는 별을 주지 않아요(물로 나무를 키워요). 힌트를 더 볼 때만 다른 과목에서 번 별을 써요. 찬스 가게, 쿠폰 사용 처리, 별 장부는 에이스 홈의 부모님 모드에서 해요.
               </p>
               {coupons.length > 0 && <p className="text-sm font-bold text-amber-600">사용을 기다리는 쿠폰 {coupons.length}장</p>}
               <button className="btn-secondary w-full flex items-center justify-center gap-2" onClick={() => goHome()}>
@@ -307,7 +308,7 @@ export default function Parent({ onHome, onPreview }: { onHome: () => void; onPr
                     <div className="min-w-0">
                       <h3 className="text-xl font-black text-slate-900">{menuName(selected.menu)}</h3>
                       <p className="text-sm text-slate-400">{selected.date}</p>
-                      <p className="text-xs text-slate-400 mt-1">번 별 {selected.stars}개 · 물 💧{selected.drops} · 무료 힌트 {selected.hintsFree}번 · 별로 본 힌트 {selected.hintsPaid}번{selected.lowAcc ? ' · 정답률이 낮아 별 없음' : ''}</p>
+                      <p className="text-xs text-slate-400 mt-1">물 💧{selected.drops} · 무료 힌트 {selected.hintsFree}번 · 별로 본 힌트 {selected.hintsPaid}번{selected.lowAcc ? ' · 정답률이 낮아 물 없음' : ''}</p>
                       {selected.fresh.length > 0 && <p className="text-xs text-slate-400">처음 만난 유형: {selected.fresh.map(k => TYPE_NAME[k]).join(', ')}</p>}
                     </div>
                     <div className="text-right shrink-0">
@@ -355,8 +356,8 @@ export default function Parent({ onHome, onPreview }: { onHome: () => void; onPr
                   <button key={r.ts} onClick={() => setSelected(r)}
                     className="w-full text-left bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center gap-4 group hover:border-trust-300 transition-all active:scale-[0.98]">
                     <div className="space-y-1 min-w-0">
-                      <div className="font-bold text-slate-900">{menuName(r.menu)} <span className="text-xs font-bold text-amber-500">★ +{r.stars}</span></div>
-                      <div className="text-xs text-slate-400 truncate">{r.date}{r.lowAcc ? ' · 정답률이 낮아 별 없음' : ''}</div>
+                      <div className="font-bold text-slate-900">{menuName(r.menu)} <span className="text-xs font-bold text-sky-500">💧 +{r.drops}</span></div>
+                      <div className="text-xs text-slate-400 truncate">{r.date}{r.lowAcc ? ' · 정답률이 낮아 물 없음' : ''}</div>
                     </div>
                     <div className="flex items-center gap-4 shrink-0">
                       <div className="text-right">

@@ -722,11 +722,18 @@ const T_ITEMS=[
  {n:'나비',e:'🦋',k:'동물',bug:true,legs:6,fly:true,water:false,big:false,feather:false},
  {n:'벌',e:'🐝',k:'동물',bug:true,legs:6,fly:true,water:false,big:false,feather:false,sound:'윙윙'},
  {n:'거미',e:'🕷️',k:'동물',bug:null,legs:8,fly:false,water:false,big:false,feather:false},
+ {n:'사자',e:'🦁',k:'동물',legs:4,fly:false,water:false,big:true,feather:false,sound:'어흥'},
+ {n:'기린',e:'🦒',k:'동물',legs:4,fly:false,water:false,big:true,feather:false},
+ {n:'거북이',e:'🐢',k:'동물',legs:4,fly:false,water:null,big:null,feather:false,sea:null},
+ {n:'개미',e:'🐜',k:'동물',bug:true,legs:6,fly:null,water:false,big:false,feather:false},
+ {n:'문어',e:'🐙',k:'동물',legs:8,fly:false,water:true,big:null,feather:false,sea:null},
  {n:'자동차',e:'🚗',k:'탈것',wheels:4,fly:false,road:true,rail:false,sea:false,pedal:false,many:false,sound:'빵빵'},
  {n:'자전거',e:'🚲',k:'탈것',wheels:2,fly:false,road:true,rail:false,sea:false,pedal:true,many:false},
  {n:'버스',e:'🚌',k:'탈것',wheels:null,fly:false,road:true,rail:false,sea:false,pedal:false,many:true},
  {n:'기차',e:'🚂',k:'탈것',wheels:null,fly:false,road:false,rail:true,sea:false,pedal:false,many:true,sound:'칙칙폭폭'},
  {n:'비행기',e:'✈️',k:'탈것',wheels:null,fly:true,road:false,rail:false,sea:false,pedal:false,many:true},
+ {n:'헬리콥터',e:'🚁',k:'탈것',wheels:null,fly:true,road:false,rail:false,sea:false,pedal:false,many:null},
+ {n:'트럭',e:'🚚',k:'탈것',wheels:null,fly:false,road:true,rail:false,sea:false,pedal:false,many:false},
  {n:'배',e:'⛵',k:'탈것',wheels:0,fly:false,road:false,rail:false,sea:true,pedal:false,many:null},
  {n:'사과',e:'🍎',k:'음식',color:'빨강',round:true,long:false,tree:true,under:false,peel:null,huge:false},
  {n:'바나나',e:'🍌',k:'음식',color:'노랑',round:false,long:true,tree:null,under:false,peel:true,huge:false},
@@ -768,11 +775,16 @@ function clueCands(target){
   return out;
 }
 // 단서 k개면 하나만 남고(필요한 단서), 그 뒤에 확인용 단서를 더 붙임
+// 답(target)을 먼저 고르게 뽑고, 그 답으로 문제를 만들 수 있을 때까지 여러 번 시도 (만들기 쉬운 답만 자주 나오지 않게)
 function genT1(step){
+  for(const target of R.shuffle(T_ITEMS.slice())){const q=genT1For(step,target);if(q)return q;}
+  return genT1For(0,R.pick(T_ITEMS));
+}
+function genT1For(step,target){
   const nOpt=step===0?6:8;
-  for(let t=0;t<3000;t++){
-    const k=step===0?3:step===1?R.pick([3,4]):R.pick([4,4,5]);
-    const target=R.pick(T_ITEMS);let others;
+  for(let t=0;t<400;t++){
+    const k=step===0?3:step===1?R.pick([3,4]):(t<250?R.pick([4,4,5]):3);
+    let others;
     if(step===0)others=R.shuffle(T_ITEMS.filter(x=>x!==target)).slice(0,nOpt-1);
     else if(step===1){const same=R.shuffle(T_ITEMS.filter(x=>x!==target&&x.k===target.k)).slice(0,R.int(3,5)),diff=R.shuffle(T_ITEMS.filter(x=>x.k!==target.k)).slice(0,nOpt-1-same.length);others=[...same,...diff];}
     else{const same=R.shuffle(T_ITEMS.filter(x=>x!==target&&x.k===target.k)).slice(0,nOpt-1);others=same.length===nOpt-1?same:[...same,...R.shuffle(T_ITEMS.filter(x=>x.k!==target.k)).slice(0,nOpt-1-same.length)];}

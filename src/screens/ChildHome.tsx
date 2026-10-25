@@ -1,10 +1,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { BookOpen, ChevronRight, Droplets, Pencil, Star, Trees } from 'lucide-react';
-import { BADGES, seenTypes, useStore } from '../engine/store';
-import { useWallet } from '../ace/wallet';
+import { BookOpen, ChevronRight, Droplets, Pencil, Trees } from 'lucide-react';
+import { seenTypes, useStore } from '../engine/store';
 import { AceNav } from '../ace/AceNav';
-import { AceRewardCards } from '../ace/Rewards';
 import { AREAS } from '../engine/areas';
 import { STAGES, isDone, kindOf, stageOf } from '../engine/tree';
 import { newCountFor, pickNew } from '../engine/round';
@@ -14,17 +12,15 @@ interface Props {
   onParent: () => void;
   onDaily: () => void;
   onArea: (id: string) => void;
-  onRewards: () => void;
   onForest: () => void;
   onCards: () => void;
   onRename: () => void;
   onPlant: () => void;
 }
 
-export default function ChildHome({ onParent, onDaily, onArea, onRewards, onForest, onCards, onRename, onPlant }: Props) {
+export default function ChildHome({ onParent, onDaily, onArea, onForest, onCards, onRename, onPlant }: Props) {
   const store = useStore();
   const { config, tree } = store;
-  const balance = useWallet().balance;
   const st = stageOf(tree.drops);
   const nNew = pickNew(newCountFor(seenTypes(store).length, config.newPer), store.seen).length;
 
@@ -32,14 +28,6 @@ export default function ChildHome({ onParent, onDaily, onArea, onRewards, onFore
     <div className="flex-1 overflow-y-auto p-6">
       <header className="flex flex-wrap items-center gap-2 mb-6 max-w-lg landscape:max-w-5xl mx-auto w-full">
         <AceNav current="thinking" onParent={onParent} />
-        <button onClick={onRewards} aria-label="내 보상 보기"
-          className="ml-auto bg-white px-5 py-2.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3 active:scale-95 transition-transform">
-          <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-            <Star size={18} className="text-amber-500 fill-amber-500" />
-          </div>
-          <span className="font-black text-slate-700 text-lg font-display">{balance}</span>
-          <ChevronRight size={16} className="text-slate-300 -ml-1" />
-        </button>
       </header>
 
       <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
@@ -53,7 +41,7 @@ export default function ChildHome({ onParent, onDaily, onArea, onRewards, onFore
             </h2>
             <p className="text-sm font-bold text-emerald-700">{kindOf(tree.kind).n} · {STAGES[st].n}</p>
           </div>
-          <TreeArt drops={tree.drops} kind={tree.kind} />
+          <TreeArt drops={tree.drops} kind={tree.kind} className="treeArt" />
           <StageBar drops={tree.drops} kind={tree.kind} />
           {isDone(tree.drops) && (
             <button className="btn-primary w-full py-4 mt-2" onClick={onPlant}>🌲 생각 숲으로 옮겨 심고 새 씨앗 심기</button>
@@ -90,7 +78,7 @@ export default function ChildHome({ onParent, onDaily, onArea, onRewards, onFore
 
           <div className="bg-white rounded-3xl border border-slate-100 p-4 text-sm font-bold text-slate-600 space-y-1">
             <div className="font-black text-slate-800">이렇게 자라요</div>
-            <div>💧 한 판에서 5문제 맞힐 때마다 물 한 방울 (별도 한 개)</div>
+            <div>💧 한 판에서 5문제 맞힐 때마다 물 한 방울</div>
             <div>🌳 물이 모이면 나무가 한 단계씩 자라요</div>
           </div>
 
@@ -103,8 +91,7 @@ export default function ChildHome({ onParent, onDaily, onArea, onRewards, onFore
             </button>
           </div>
 
-          {/* 내 보상 · 찬스 바꾸기 · 명예의 전당 (모든 에이스 같은 모양) */}
-          <AceRewardCards subject="thinking" badges={BADGES} onOpen={onRewards} />
+          <p className="text-xs font-bold text-slate-400 px-1 break-keep">생각 에이스는 별 대신 나무가 자라요. 힌트는 한 판에 2번 무료, 그 뒤로는 별 1개를 써요.</p>
         </div>
       </motion.div>
     </div>

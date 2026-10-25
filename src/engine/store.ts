@@ -2,15 +2,14 @@
  * 저장소 — 기기의 localStorage가 1차 저장소.
  * 다른 에이스와 같은 주소(eternal-today.github.io)에서 돌아 저장소를 함께 쓰므로 모든 이름 앞에 'thinking_'을 붙임.
  *
- * 별은 다른 과목과 같은 "장부" 방식:
- *   번 별 = 학습 기록의 별을 모두 더한 값 (5문제 맞힐 때마다 1개, 한 판 정답률 40% 미만이면 0)
- *   쓴 별·남은 별 = 모든 과목이 함께 쓰는 에이스 지갑(src/ace/wallet.ts)에서 계산
- * 나무의 물은 별과 같은 수로 줌 (판마다 물 = 별).
+ * 생각 에이스는 별을 주지 않음 (2026-10-25 결정). 보상은 생각나무의 물:
+ *   5문제 맞힐 때마다 물 한 방울, 한 판 정답률 40% 미만이면 0
+ * 무료 힌트(판마다 2번)를 다 쓴 뒤에는 공통 지갑의 별을 1개씩 씀 (다른 과목에서 번 별).
  */
 import { useSyncExternalStore } from 'react';
 import { Config, Medals, RoundRecord, Steps, Tree } from '../types';
 import { ALL_TYPES } from './areas';
-import { forgetThinkingRecords, markDirty, notifyWallet, spendHint, takeCelebration } from '../ace/wallet';
+import { forgetThinkingRecords, markDirty, notifyWallet, spendHint } from '../ace/wallet';
 import { onPrefsApplied, prefsChanged } from '../ace/prefs';
 
 const P = 'thinking_';
@@ -19,17 +18,9 @@ const K = {
   pin: P + 'parent_pin', peekPin: P + 'peek_pin',
 };
 
-export const BADGES = [
-  { id: 'b10', need: 10, iconName: 'Sprout', name: '새싹 생각꾼' },
-  { id: 'b30', need: 30, iconName: 'Star', name: '반짝 생각꾼' },
-  { id: 'b60', need: 60, iconName: 'Flame', name: '생각 불꽃' },
-  { id: 'b100', need: 100, iconName: 'Gem', name: '다이아 생각' },
-  { id: 'b200', need: 200, iconName: 'Trophy', name: '생각 챔피언' },
-];
-
 export const COUNT_CHOICES = [5, 10, 15, 20];
-export const PER_STAR = 5;          // 5문제 맞힐 때마다 별 1개·물 한 방울
-export const MIN_ACC = 0.4;         // 한 판 정답률이 이보다 낮으면 별·물 없음 (공통 규칙 9번)
+export const PER_DROP = 5;          // 5문제 맞힐 때마다 물 한 방울
+export const MIN_ACC = 0.4;         // 한 판 정답률이 이보다 낮으면 물 없음 (찍기 방지, 공통 규칙 9번과 같은 기준)
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -128,17 +119,13 @@ export function useStore(): State {
   );
 }
 
-/** 생각에서 번 별 (생각 뱃지 기준) */
-export const earnedStars = (s: State) => s.records.reduce((a, r) => a + (r.stars || 0), 0);
 export const seenTypes = (s: State) => ALL_TYPES.filter(k => s.seen[k]);
 
-/** 한 판의 별(=물): 5문제마다 1개, 정답률 40% 미만이면 0 */
-export function starsFor(correct: number, total: number): { stars: number; lowAcc: boolean } {
+/** 한 판의 물: 5문제마다 한 방울, 정답률 40% 미만이면 0 */
+export function dropsFor(correct: number, total: number): { drops: number; lowAcc: boolean } {
   const lowAcc = total > 0 && correct / total < MIN_ACC;
-  return { stars: lowAcc ? 0 : Math.floor(correct / PER_STAR), lowAcc };
+  return { drops: lowAcc ? 0 : Math.floor(correct / PER_DROP), lowAcc };
 }
-
-export interface Milestone { value: number; hall: boolean; badge: string | null }
 
 export const actions = {
   saveConfig(config: Config, steps?: Steps) {
@@ -166,19 +153,13 @@ export const actions = {
     commit({ tree: { name: '', drops: 0, kind: t.kind + 1, forest: [...t.forest, { name: t.name || '생각나무', kind: t.kind, at: Date.now() }] } });
   },
   /** 한 판 끝: 물 주기와 기록 저장. 체험 중이면 아무것도 남기지 않음 */
-  finishRound(rec: RoundRecord): { milestone: Milestone | null; grew: boolean } {
-    if (state.preview) return { milestone: null, grew: false };
-    const before = earnedStars(state);
+  finishRound(rec: RoundRecord) {
+    if (state.preview) return;
     const tree = { ...state.tree, drops: state.tree.drops + rec.drops };
     const records = [rec, ...state.records].map((r, i) => (i >= 300 && r.items?.length ? { ...r, items: [] } : r));
     commit({ records, tree });
-    markDirty('thinking', rec.ts);   // 다른 기기(에이스 홈 등)에서도 생각 별을 계산할 수 있게 서버로 올림
+    markDirty('thinking', rec.ts);   // 에이스 홈의 '오늘 푼 문제 수'에 쓰도록 서버로 올림 (별은 없음)
     notifyWallet();
-    const after = earnedStars(state);
-    const badge = BADGES.find(b => before < b.need && after >= b.need) || null;
-    const cel = takeCelebration();
-    const milestone = !cel && !badge ? null : { value: cel?.value ?? 0, hall: !!cel?.hall, badge: badge ? badge.name : null };
-    return { milestone, grew: rec.drops > 0 };
   },
   /** 학습 기록 지우기: 판 기록·단계·만난 유형·메달. 나무·설정·PIN은 남김 */
   resetLearning() {
@@ -186,7 +167,7 @@ export const actions = {
     commit({ records: [], steps: Object.fromEntries(ALL_TYPES.map(k => [k, 0])), seen: {}, medals: { gold: 0, silver: 0, bronze: 0 } });
     notifyWallet();
   },
-  /** 힌트에 별 쓰기 (에이스 지갑 공통 장부, 1회 1개). 남은 별이 모자라면 false. 체험 중에는 쓰지 않음 */
+  /** 무료 힌트를 다 쓴 뒤: 공통 지갑의 별 1개 쓰기. 남은 별이 모자라면 false. 체험 중에는 쓰지 않음 */
   spendHint(note: string): boolean {
     if (state.preview) return true;
     return spendHint('thinking', note);
