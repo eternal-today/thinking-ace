@@ -16,6 +16,7 @@ export interface Tree {
   drops: number;          // 지금 나무에 준 물 (5문제 맞힐 때마다 한 방울)
   kind: number;           // 나무 종류 (사과·귤·자두·레몬 차례)
   forest: ForestTree[];   // 다 키워 생각 숲으로 옮긴 나무
+  plantedAt?: number;     // 지금 나무를 심은 시각 (이 뒤에 준 물만 지금 나무 것)
 }
 
 export interface RoundItem {

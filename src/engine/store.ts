@@ -10,7 +10,7 @@ import { useSyncExternalStore } from 'react';
 import { Config, Medals, RoundRecord, Steps, Tree } from '../types';
 import { ALL_TYPES } from './areas';
 import { forgetThinkingRecords, markDirty, notifyWallet, spendHint } from '../ace/wallet';
-import { onPrefsApplied, prefsChanged } from '../ace/prefs';
+import { logAdd, logRead, onPrefsApplied, prefsChanged } from '../ace/prefs';
 
 const P = 'thinking_';
 const K = {
@@ -55,13 +55,33 @@ function readPreview(): boolean {
   try { return Number(sessionStorage.getItem(PREVIEW_KEY) || 0) > Date.now(); } catch { return false; }
 }
 
+/**
+ * 생각나무: 이름·종류·숲·심은 시각은 thinking_tree에 두고(기기끼리 맞춤),
+ * 물은 판마다 '쌓기 기록'(thinking_drops)에 적어 지금 나무를 심은 뒤의 물을 더해서 셈.
+ * 그래서 아이 태블릿과 부모님 태블릿에서 번갈아 풀어도 물이 사라지지 않음.
+ */
+const DROPS_MIGRATED = P + 'drops_migrated_v1';
+function readTree(): Tree {
+  const t = { name: '', drops: 0, kind: 0, forest: [], plantedAt: 0, ...read<Partial<Tree>>(K.tree, {}) } as Tree;
+  // 처음 한 번: 이 기기에 있던 물을 쌓기 기록으로 옮김 (체험 중에는 하지 않음)
+  try {
+    if (!localStorage.getItem(DROPS_MIGRATED) && !readPreview()) {
+      if (t.drops > 0) logAdd('thinking_drops', Date.now(), t.drops);
+      localStorage.setItem(DROPS_MIGRATED, '1');
+    }
+  } catch { /* 무시 */ }
+  const log = logRead('thinking_drops');
+  t.drops = Object.entries(log).reduce((a, [ts, v]) => a + (Number(ts) > (t.plantedAt || 0) ? Number(v) || 0 : 0), 0);
+  return t;
+}
+
 function load(): State {
   const config: Config = { ...defaultConfig(), ...read<Partial<Config>>(K.config, {}) };
   if (!COUNT_CHOICES.includes(config.count)) config.count = 10;
   config.newPer = Math.max(0, Math.min(2, Number(config.newPer) || 0));
   const steps: Steps = Object.fromEntries(ALL_TYPES.map(k => [k, 0]));
   Object.assign(steps, read<Steps>(K.steps, {}));
-  const tree = { name: '', drops: 0, kind: 0, forest: [], ...read<Partial<Tree>>(K.tree, {}) } as Tree;
+  const tree = readTree();
   const preview = readPreview();
   const seen = read<Record<string, number>>(K.seen, {});
   return {
@@ -95,14 +115,14 @@ function commit(patch: Partial<State>) {
       if (patch.records) localStorage.setItem(K.records, JSON.stringify(state.records));
     }
   } catch (e) { console.error('저장 실패', e); }
-  if (patch.config || patch.pin || patch.peekPin !== undefined) prefsChanged();   // 부모님 설정 → 다른 기기에도
+  if (patch.config || patch.pin || patch.peekPin !== undefined || patch.tree) prefsChanged();   // 부모님 설정 → 다른 기기에도
   emit();
 }
 
-// 다른 기기에서 고친 부모님 설정(설정·PIN)이 넘어오면 다시 읽음
+// 다른 기기에서 고친 부모님 설정(설정·PIN)이나 생각나무(물·이름·숲)가 넘어오면 다시 읽음
 onPrefsApplied(() => {
   const fresh = load();
-  state = { ...state, config: fresh.config, pin: fresh.pin, peekPin: fresh.peekPin };
+  state = { ...state, config: fresh.config, pin: fresh.pin, peekPin: fresh.peekPin, tree: state.preview ? state.tree : fresh.tree };
   emit();
 });
 
@@ -150,11 +170,13 @@ export const actions = {
   /** 다 자란 나무를 생각 숲으로 옮기고 다음 종류의 씨앗을 심음 (이름은 새로 지음) */
   plantNew() {
     const t = state.tree;
-    commit({ tree: { name: '', drops: 0, kind: t.kind + 1, forest: [...t.forest, { name: t.name || '생각나무', kind: t.kind, at: Date.now() }] } });
+    const now = Date.now();
+    commit({ tree: { name: '', drops: 0, kind: t.kind + 1, forest: [...t.forest, { name: t.name || '생각나무', kind: t.kind, at: now }], plantedAt: now } });
   },
   /** 한 판 끝: 물 주기와 기록 저장. 체험 중이면 아무것도 남기지 않음 */
   finishRound(rec: RoundRecord) {
     if (state.preview) return;
+    if (rec.drops > 0) logAdd('thinking_drops', rec.ts, rec.drops);   // 물은 쌓기 기록으로 (다른 기기와 합침)
     const tree = { ...state.tree, drops: state.tree.drops + rec.drops };
     const records = [rec, ...state.records].map((r, i) => (i >= 300 && r.items?.length ? { ...r, items: [] } : r));
     commit({ records, tree });
