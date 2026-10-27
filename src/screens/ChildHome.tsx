@@ -4,6 +4,7 @@ import { BookOpen, ChevronRight, Droplets, Pencil, Trees } from 'lucide-react';
 import { seenTypes, useStore } from '../engine/store';
 import { AceNav } from '../ace/AceNav';
 import { AREAS } from '../engine/areas';
+import { PlayBadge } from '../ace/playground';
 import { STAGES, isDone, kindOf, stageOf } from '../engine/tree';
 import { newCountFor, pickNew } from '../engine/round';
 import { StageBar, TreeArt } from '../components/thinking';
@@ -71,6 +72,7 @@ export default function ChildHome({ onParent, onDaily, onArea, onForest, onCards
                   className="bg-white border-2 border-slate-200 rounded-3xl p-3 flex flex-col items-center gap-2">
                   <span className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ background: a.col + '1f' }}>{a.ic}</span>
                   <span className="text-sm font-black text-slate-700 break-keep text-center">{a.name}</span>
+                  <PlayBadge subject="thinking" item={a.id} />
                 </motion.button>
               ))}
             </div>

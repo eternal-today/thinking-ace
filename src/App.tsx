@@ -5,6 +5,8 @@ import { actions, getState, seenTypes, useStore } from './engine/store';
 import { migrateThinkingRecords } from './ace/wallet';
 import { startAceSync } from './ace/aceSync';
 import { confirmLeave } from './ace/SaveBar';
+import { clearPaid, usePlayGate } from './ace/playground';
+import { AREAS } from './engine/areas';
 import { Overlays, askPin } from './components/ui';
 import { NamingSheet, StratSheet } from './components/thinking';
 import { areaTypes, buildPlan, newCountFor, pickNew } from './engine/round';
@@ -63,6 +65,7 @@ export default function App() {
     setView('play');
   };
   const startDaily = () => {
+    clearPaid('thinking');
     const s = getState();
     const fresh = pickNew(newCountFor(seenTypes(s).length, s.config.newPer), s.seen);
     const go = () => {
@@ -72,11 +75,17 @@ export default function App() {
     if (!fresh.length) { go(); return; }
     setIntro({ list: fresh, i: 0, go });
   };
+  // 놀이터 항목은 하루 2번 그냥, 그 뒤로는 별 1개 (규칙 11번). 부모님 체험 중에는 세지 않음
+  const play = usePlayGate('thinking');
   const startArea = (id: string) => {
-    const s = getState();
-    const plan = buildPlan({ count: s.config.count, pool: areaTypes(id), fresh: [], area: id });
-    actions.markSeen([...new Set(plan)]);
-    begin(`area:${id}`, plan, []);
+    const go = () => {
+      const s = getState();
+      const plan = buildPlan({ count: s.config.count, pool: areaTypes(id), fresh: [], area: id });
+      actions.markSeen([...new Set(plan)]);
+      begin(`area:${id}`, plan, []);
+    };
+    if (getState().preview) go();
+    else play.gate(id, AREAS.find(a => a.id === id)?.name || id, go);
   };
   const again = () => { if (!round) return; round.menu === 'daily' ? startDaily() : startArea(round.menu.slice(5)); };
   const toHome = () => { setView('home'); setRound(null); };
@@ -86,6 +95,7 @@ export default function App() {
   return (
     <div className="min-h-[100dvh] bg-slate-50 selection:bg-brand-100 selection:text-brand-900">
       <Overlays pin={store.pin} />
+      {play.dialog}
 
       <AnimatePresence mode="wait">
         {screen === 'parent' && (

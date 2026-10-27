@@ -14,6 +14,7 @@ import { R, J } from '../gen/generators.js';
 import { AREA_OF, OOPS, PRAISE, STEP_NAME, TYPE_NAME } from '../engine/areas';
 import { Menu, RoundItem, RoundRecord } from '../types';
 import { PER_DROP, actions, dropsFor, getState, useStore } from '../engine/store';
+import { paidRound } from '../ace/playground';
 import { STAGES, stageOf } from '../engine/tree';
 import { makeQ } from '../engine/makeQ';
 import { Q, View, ansHTML, ansText, currentGiven, inputHTML, promptOf, remainingByClues, solveOf, stemHTML } from '../engine/render';
@@ -54,7 +55,7 @@ export default function Play({ menu, plan, fresh, onExit, onAgain }: Props) {
       i: 0, q: q0, v: freshView(q0), log: [] as LogItem[], steps, streak: {} as Record<string, number>,
       combo: 0, maxCombo: 0, gave: 0, freeLeft: FREE_HINTS, hintsFree: 0, hintsPaid: 0,
       retry: null as null | { list: Q[]; i: number }, phase: 'play' as 'play' | 'result', peekOk: getState().preview,
-      t0: Date.now(), result: null as null | { drops: number; lowAcc: boolean; grew: string | null; correct: number },
+      t0: Date.now(), result: null as null | { drops: number; lowAcc: boolean; paid?: boolean; grew: string | null; correct: number },
     };
   }
   const s = S.current;
@@ -106,18 +107,21 @@ export default function Play({ menu, plan, fresh, onExit, onAgain }: Props) {
   // ── 판 끝: 물 주기, 기록 ──
   const finish = () => {
     const correct = s.gave;
-    const { drops, lowAcc } = dropsFor(correct, total);
+    // 놀이터 무료 2번 뒤 별을 내고 한 판은 물 없음 (규칙 11번)
+    const paid = !getState().preview && menu !== 'daily' && paidRound('thinking', String(menu).slice(5));
+    const dr = dropsFor(correct, total);
+    const drops = paid ? 0 : dr.drops, lowAcc = dr.lowAcc;
     const beforeSt = stageOf(getState().tree.drops);
     const d = new Date();
     const rec: RoundRecord = {
       ts: Date.now(),
       date: `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
-      menu, stars: 0, correct, total, drops, lowAcc, hintsFree: s.hintsFree, hintsPaid: s.hintsPaid, fresh,
+      menu, stars: 0, correct, total, drops, lowAcc, ...(paid ? { paidPlay: true } : {}), hintsFree: s.hintsFree, hintsPaid: s.hintsPaid, fresh,
       items: s.log.map((l: LogItem): RoundItem => ({ k: l.q.key, st: l.q.step, ch: !!l.q.challenge, ok: l.ok, hint: l.hint, ans: ansText(l.q), clues: l.clues })),
     };
     actions.finishRound(rec);
     const afterSt = stageOf(getState().tree.drops);
-    s.result = { drops, lowAcc, correct, grew: afterSt > beforeSt ? `${J(treeName, '이', '가')} ${J(STAGES[afterSt].n, '이', '가')} 됐어요!` : null };
+    s.result = { drops, lowAcc, paid, correct, grew: afterSt > beforeSt ? `${J(treeName, '이', '가')} ${J(STAGES[afterSt].n, '이', '가')} 됐어요!` : null };
   };
 
   const advance = () => {
@@ -305,7 +309,9 @@ export default function Play({ menu, plan, fresh, onExit, onAgain }: Props) {
                 <div className="stat"><b>💧{r.drops}</b><span>준 물</span></div>
                 <div className="stat"><b>🔥{s.maxCombo}</b><span>최고 콤보</span></div>
               </div>
-              {r.lowAcc
+              {r.paid
+                ? <div className="lowacc">별을 내고 한 판이라 이번 판은 물이 없어요. 물 주러 가기에서는 물을 줄 수 있어! 💧</div>
+                : r.lowAcc
                 ? <div className="lowacc">천천히 풀면 물을 줄 수 있어! (이번 판은 정답이 너무 적었어요)</div>
                 : <div className="gave">맞힌 문제 {r.correct}개 → 💧{r.drops} <span className="muted">(5문제 맞힐 때마다 한 방울)</span></div>}
               {store.preview && <div className="muted">체험 중이라 나무에 물이 들어가지 않아요.</div>}

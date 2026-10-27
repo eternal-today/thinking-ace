@@ -40,6 +40,7 @@ export interface RoundRecord {
   total: number;
   drops: number;          // 나무에 준 물
   lowAcc: boolean;        // 정답률 40% 미만이라 물이 없던 판
+  paidPlay?: boolean;     // 놀이터 무료 2번 뒤 별을 내고 한 판 (물 없음)
   hintsFree: number;
   hintsPaid: number;
   fresh: string[];        // 이 판에서 처음 만난 유형
