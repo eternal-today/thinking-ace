@@ -122,7 +122,9 @@ function commit(patch: Partial<State>) {
 // 다른 기기에서 고친 부모님 설정(설정·PIN)이나 생각나무(물·이름·숲)가 넘어오면 다시 읽음
 onPrefsApplied(() => {
   const fresh = load();
-  state = { ...state, config: fresh.config, pin: fresh.pin, peekPin: fresh.peekPin, tree: state.preview ? state.tree : fresh.tree };
+  state = state.preview
+    ? { ...state, config: fresh.config, pin: fresh.pin, peekPin: fresh.peekPin }
+    : { ...state, config: fresh.config, pin: fresh.pin, peekPin: fresh.peekPin, tree: fresh.tree, steps: fresh.steps, seen: fresh.seen, medals: fresh.medals };
   emit();
 });
 

@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Menu } from './types';
 import { actions, getState, seenTypes, useStore } from './engine/store';
 import { migrateThinkingRecords } from './ace/wallet';
-import { startAceSync } from './ace/aceSync';
+import { getAceSyncSettings, runAceSync, startAceSync } from './ace/aceSync';
 import { confirmLeave } from './ace/SaveBar';
 import { clearPaid, usePlayGate } from './ace/playground';
 import { AREAS } from './engine/areas';
@@ -28,6 +28,17 @@ export default function App() {
   const [intro, setIntro] = useState<{ list: string[]; i: number; go: () => void } | null>(null);
   const [strat, setStrat] = useState<string | null>(null);
   const [naming, setNaming] = useState(false);
+  // 이 기기에 나무가 없고 동기화가 연결돼 있으면, 다른 기기의 나무를 먼저 받아 본 뒤에 이름을 물음
+  // (먼저 이름을 지으면 그 이름이 '나중에 고친 값'이 되어 다른 기기의 나무를 덮어씀)
+  const [treeLoading, setTreeLoading] = useState(() => !getState().tree.name && !!getAceSyncSettings());
+  useEffect(() => {
+    if (!treeLoading) return;
+    let done = false;
+    const stop = () => { if (!done) { done = true; setTreeLoading(false); } };
+    const t = setTimeout(stop, 15000);
+    setTimeout(() => { runAceSync().catch(() => { }).finally(() => { clearTimeout(t); stop(); }); }, 700);
+    return () => clearTimeout(t);
+  }, []);
   const [lastName, setLastName] = useState('');
   const treeName = store.tree.name || '생각나무';
 
@@ -90,7 +101,7 @@ export default function App() {
   const again = () => { if (!round) return; round.menu === 'daily' ? startDaily() : startArea(round.menu.slice(5)); };
   const toHome = () => { setView('home'); setRound(null); };
 
-  const needName = screen === 'child' && view === 'home' && !store.tree.name;
+  const needName = screen === 'child' && view === 'home' && !store.tree.name && !treeLoading;
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 selection:bg-brand-100 selection:text-brand-900">
@@ -115,6 +126,7 @@ export default function App() {
             )}
             {view === 'home' && (
               <ChildHome
+                loading={treeLoading}
                 onParent={() => askPin('', () => setScreen('parent'))}
                 onDaily={startDaily} onArea={startArea}
                 onForest={() => setView('forest')} onCards={() => setView('cards')}

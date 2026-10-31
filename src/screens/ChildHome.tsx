@@ -17,9 +17,10 @@ interface Props {
   onCards: () => void;
   onRename: () => void;
   onPlant: () => void;
+  loading?: boolean;   // 다른 기기의 나무를 받는 중
 }
 
-export default function ChildHome({ onParent, onDaily, onArea, onForest, onCards, onRename, onPlant }: Props) {
+export default function ChildHome({ onParent, onDaily, onArea, onForest, onCards, onRename, onPlant, loading }: Props) {
   const store = useStore();
   const { config, tree } = store;
   const st = stageOf(tree.drops);
@@ -40,7 +41,7 @@ export default function ChildHome({ onParent, onDaily, onArea, onForest, onCards
               {tree.name || '생각나무'}
               <button onClick={onRename} aria-label="나무 이름 바꾸기" className="w-8 h-8 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center active:scale-90"><Pencil size={15} /></button>
             </h2>
-            <p className="text-sm font-bold text-emerald-700">{kindOf(tree.kind).n} · {STAGES[st].n}</p>
+            <p className="text-sm font-bold text-emerald-700">{loading ? '다른 기기의 나무를 불러오는 중…' : `${kindOf(tree.kind).n} · ${STAGES[st].n}`}</p>
           </div>
           <TreeArt drops={tree.drops} kind={tree.kind} className="treeArt" />
           <StageBar drops={tree.drops} kind={tree.kind} />
