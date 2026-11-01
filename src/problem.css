@@ -291,3 +291,5 @@ ol.ways{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:4px}
 }
 .presult h2{font-size:28px}
 .presult .sub{color:var(--s500);font-weight:700;margin-top:4px}
+.coin.c10{background:#e7b98f;border-color:#c98f5e;color:#5b3a1e} .coin.c500{background:#e3e7ec;width:64px;height:64px}
+.coin.sm.c500{width:34px;height:34px}

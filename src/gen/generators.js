@@ -244,8 +244,62 @@ function wrapRule(key_,raw){
   q.hintHTML=`<div>${q.hintText}</div>${hp}`;
   return q;
 }
-// 수 규칙: 쉬움 1씩(가운데 빈칸), 보통 2·3·5씩, 도전 차가 1씩 커지기
-function genRB(step){const raw=step===0?genB(0):step===1?genB(1):genC(0);raw.step=step;return wrapRule('RB',raw);}
+// 수 규칙 (2026-11-01 다시 만듦): 규칙 종류를 늘리고 빈칸 위치를 바꿈
+//  쉬움: 같은 수만큼 커지거나 작아짐 (1·2·5·10씩)
+//  보통: 2~5·10씩, 번갈아 더하기(+1,+2,…), 두 배, 커지는 수가 1씩 커짐
+//  도전: 두 줄이 섞인 수열, 번갈아 더하고 빼기, 커지는 수가 2씩 커짐, 앞 두 수의 합, 제곱수, 두 배 하고 1 더하기
+// 답이 하나뿐인지: 아래 규칙 모두로 빈칸을 채워 보고, 맞는 값이 정확히 하나일 때만 냄
+function rbRules(s){
+  const ok=[],n=s.length,d=s.slice(1).map((x,i)=>x-s[i]);
+  if(d.every(x=>x===d[0]))ok.push('arith');
+  const dd=d.slice(1).map((x,i)=>x-d[i]);if(dd.length>=3&&dd.every(x=>x===dd[0])&&dd[0]!==0)ok.push('diff2');
+  if(d.length>=4&&d[0]!==d[1]&&d.every((x,i)=>i<2||x===d[i-2]))ok.push('alt');
+  if(s[0]>0&&s.every((x,i)=>i===0||x===s[i-1]*2))ok.push('dbl');
+  if(n>=6){const ev=s.filter((_,i)=>i%2===0),od=s.filter((_,i)=>i%2===1);const ar=a=>a.slice(1).every((x,i)=>x-a[i]===a[1]-a[0]);if(ar(ev)&&ar(od)&&ev[1]-ev[0]!==od[1]-od[0])ok.push('inter');}
+  if(n>=5&&s.every((x,i)=>i<2||x===s[i-1]+s[i-2]))ok.push('fib');
+  if(n>=4){const r=Math.round(Math.sqrt(s[0]));if(r*r===s[0]&&s.every((x,i)=>x===(r+i)*(r+i)))ok.push('sq');}
+  if(n>=4&&s[0]>0&&s.every((x,i)=>i===0||x===s[i-1]*2+1))ok.push('dbl1');
+  return ok;
+}
+function rbAnswers(seq){const b=seq.indexOf(null),out=[];for(let v=0;v<=300;v++){const f=seq.slice();f[b]=v;if(rbRules(f).length)out.push(v);}return out;}
+const RB_TXT={
+  arith:(q)=>{const d=q.full[1]-q.full[0];return [d>0?`${d}씩 커져요.`:`${-d}씩 작아져요.`,'옆에 있는 두 수가 얼마나 차이 나는지 봐요.'];},
+  alt:(q)=>{const a=q.full[1]-q.full[0],b=q.full[2]-q.full[1];const f=x=>x>0?'+'+x:String(x);return [`${f(a)}, ${f(b)}가 번갈아 나와요.`,'차이를 차례로 적어 봐요. 같은 차이가 하나 건너 다시 나와요.'];},
+  dbl:()=>['앞의 수를 두 번 더해요 (두 배).','차이가 아니라 몇 배인지 봐요.'],
+  diff2:(q)=>{const d=q.full.slice(1).map((x,i)=>x-q.full[i]);return [`커지는 수가 ${d.map(x=>'+'+x).join(', ')}처럼 ${d[1]-d[0]}씩 더 커져요.`,'옆 수와의 차이를 적어 봐요. 그 차이가 어떻게 바뀌나요?'];},
+  inter:(q)=>{const ev=q.full.filter((_,i)=>i%2===0),od=q.full.filter((_,i)=>i%2===1);return [`첫째·셋째·다섯째… (${ev.join(', ')})와 둘째·넷째·여섯째… (${od.join(', ')})가 따로 규칙을 가져요.`,'두 줄이 섞여 있어요. 하나씩 건너뛰며 봐요.'];},
+  fib:()=>['앞의 두 수를 더하면 다음 수가 돼요.','바로 앞 두 수를 더해 봐요.'],
+  sq:(q)=>{const r=Math.round(Math.sqrt(q.full[0]));return [`${q.full.map((x,i)=>`${r+i}×${r+i}`).join(', ')}처럼 같은 수를 두 번 곱한 수예요.`,'1×1, 2×2, 3×3…을 떠올려 봐요.'];},
+  dbl1:()=>['앞의 수를 두 배 하고 1을 더해요.','두 배와 비슷한데 조금씩 더 커요. 얼마나 더 커지나요?']};
+function genRB(step){
+  for(let t=0;t<400;t++){
+    let nums,rule,n=step===0?5:6;
+    const kind=step===0?'arith':step===1?R.pick(['arith','arith','alt','dbl','diff2']):R.pick(['inter','alt2','diff2b','fib','sq','dbl1','inter']);
+    if(kind==='arith'){const d=step===0?R.pick([1,2,5,10,-1,-2,-10]):R.pick([2,3,4,5,10,-2,-3,-5]);const a=d>0?R.int(0,step===0?20:30):R.int(-d*(n-1),-d*(n-1)+30);nums=Array.from({length:n},(_,i)=>a+d*i);rule='arith';}
+    else if(kind==='alt'){const x=R.int(1,3),y=R.int(x+1,5);const a=R.int(0,10);nums=[a];for(let i=1;i<n;i++)nums.push(nums[i-1]+(i%2?x:y));rule='alt';}
+    else if(kind==='alt2'){const x=R.int(3,6),y=-R.int(1,x-1);const a=R.int(1,10);nums=[a];for(let i=1;i<n;i++)nums.push(nums[i-1]+(i%2?x:y));rule='alt';}
+    else if(kind==='dbl'){const a=R.int(1,5);nums=[a];for(let i=1;i<n;i++)nums.push(nums[i-1]*2);n=Math.min(n,6);rule='dbl';}
+    else if(kind==='diff2'){const a=R.int(1,10),d0=R.int(1,3);nums=[a];for(let i=1;i<n;i++)nums.push(nums[i-1]+d0+(i-1));rule='diff2';}
+    else if(kind==='diff2b'){const a=R.int(1,10),d0=R.int(1,3);nums=[a];for(let i=1;i<n;i++)nums.push(nums[i-1]+d0+2*(i-1));rule='diff2';}
+    else if(kind==='inter'){const a=R.int(1,9),b=R.int(10,40),da=R.pick([1,2,3]),db=R.pick([-1,-2,5,10]);if(da===db)continue;nums=Array.from({length:7},(_,i)=>i%2===0?a+da*(i/2):b+db*((i-1)/2));n=7;rule='inter';}
+    else if(kind==='fib'){const a=R.int(1,3),b=R.int(a,a+3);nums=[a,b];for(let i=2;i<6;i++)nums.push(nums[i-1]+nums[i-2]);rule='fib';}
+    else if(kind==='sq'){const r=R.int(1,4);nums=Array.from({length:5},(_,i)=>(r+i)*(r+i));rule='sq';}
+    else{const a=R.int(1,3);nums=[a];for(let i=1;i<5;i++)nums.push(nums[i-1]*2+1);rule='dbl1';}
+    if(nums.some(x=>x<0||x>300))continue;
+    // 빈칸: 쉬움은 가운데도, 보통·도전은 어디든 (맨 앞 빼고)
+    const b=step===0?R.int(1,nums.length-1):R.int(2,nums.length-1);
+    const seq=nums.map((x,i)=>i===b?null:x);
+    const ans=rbAnswers(seq);if(ans.length!==1||ans[0]!==nums[b])continue;
+    if(!rbRules(nums).includes(rule))continue;
+    // 대표 실수: 바로 앞 차이를 그대로 이어 붙인 값
+    let mk=null;
+    if(b>=2){const v=nums[b-1]+(nums[b-1]-nums[b-2]);if(v!==nums[b]&&v>=0)mk={val:String(v),text:'바로 앞 차이만 보고 똑같이 이었나요? 차이가 어떻게 바뀌는지 전체를 봐요.'};}
+    const q={type:'B',step,kind:'num',seq,full:nums,blanks:[b],ans:String(nums[b]),answerText:String(nums[b]),
+      prompt:'빈칸에 들어갈 수를 써요.',mistake:mk};
+    const [solve,hint]=RB_TXT[rule](q);q.solveText=solve;q.hintText=hint;
+    return wrapRule('RB',q);
+  }
+}
 
 // 매트릭스 규칙 (3×3 그림 표)
 function matrixHTML(g,blank,hl){
@@ -323,9 +377,9 @@ function paintGridHTML(q,cells,opts={}){ // cells: 전체 w×h 값 (0 없음, 1�
 }
 function genG1(step){
   for(let t=0;t<300;t++){
-    const h=step===0?3:4,w=step===0?4:6,half=w/2,nc=step===2?2:1;
+    const h=step===0?R.pick([3,4]):4,w=step===0?4:6,half=w/2,nc=step===2?2:1;
     const left=Array.from({length:h*half},()=>Math.random()<.45?R.int(1,nc):0);
-    const filled=left.filter(Boolean).length;if(filled<(step===0?3:5)||filled>(step===0?4:8))continue;
+    const filled=left.filter(Boolean).length;if(filled<(step===0?2:5)||filled>(step===0?5:8))continue;
     if(nc===2&&(!left.includes(1)||!left.includes(2)))continue;
     const full=Array(h*w).fill(0),mirror=Array(h*w).fill(0),copy=Array(h*w).fill(0);
     for(let r=0;r<h;r++)for(let c=0;c<half;c++){const v=left[r*half+c];full[r*w+c]=v;mirror[r*w+c]=v;copy[r*w+c]=v;
@@ -355,20 +409,30 @@ function polySVG(cs,color,mark){
   const n=norm(cs),R_=Math.max(...n.map(c=>c[0]))+1,C_=Math.max(...n.map(c=>c[1]))+1,u=16;
   return `<span class="poly"><svg viewBox="-2 -2 ${C_*u+4} ${R_*u+4}" style="width:${C_*u*1.6+6}px">${n.map(([r,c])=>`<rect x="${c*u}" y="${r*u}" width="${u}" height="${u}" rx="2" fill="${color}" stroke="#fff" stroke-width="1.5"/>`).join('')}</svg></span>`;
 }
+// 돌린 모양 찾기 (2026-11-01): 정해진 몇 가지 모양 대신 칸을 이어 붙인 모양을 그때그때 만듦 (쉬움 4~5칸, 보통 5~6칸, 도전 6~7칸)
+function randPoly(n){const cs=[[0,0]],has=new Set(['0,0']);while(cs.length<n){const [r,c]=R.pick(cs),[dr,dc]=R.pick([[1,0],[-1,0],[0,1],[0,-1]]),k=(r+dr)+','+(c+dc);if(!has.has(k)){has.add(k);cs.push([r+dr,c+dc]);}}return norm(cs);}
+const G2_COL=['#149fa6','#3B7DF5','#8B5CF6','#E5484D','#F2A20C','#24A35A'];
 function genG2(step){
-  for(let t=0;t<200;t++){
-    const name=step===0?R.pick(['L4','S4']):step===1?R.pick(['L5','P5','Y5']):R.pick(['F5','N5']);
-    const base=R.pick(rots(POLY[name])),rs=rots(base),fs=rots(flip(base));
-    const rk=new Set(rs.map(pkey));if(fs.some(f=>rk.has(pkey(f))))continue;
+  for(let t=0;t<300;t++){
+    const n=step===0?R.int(4,5):step===1?R.int(5,6):R.int(6,7);
+    const base=randPoly(n),rs=rots(base),fs=rots(flip(base));
+    const rk=new Set(rs.map(pkey));if(rk.size!==4)continue;          // 돌렸을 때 모양이 4가지로 다 달라야 각도가 하나로 정해짐
+    if(fs.some(f=>rk.has(pkey(f))))continue;                       // 뒤집은 모양이 돌린 모양과 같으면 함정이 안 됨
     const k=R.int(1,3),ans=rs[k];
-    let wrong=R.shuffle(fs).filter((f,i,a)=>a.findIndex(x=>pkey(x)===pkey(f))===i);
+    const wrong=R.shuffle(fs).filter((f,i,a)=>a.findIndex(x=>pkey(x)===pkey(f))===i);
+    // 비슷한 다른 모양: 한 칸을 옮긴 것
+    let other=null;for(let u=0;u<30&&!other;u++){const cs=ans.slice();const i=R.int(0,cs.length-1);const rest=cs.filter((_,j)=>j!==i);
+      const nb=R.pick(rest),[dr,dc]=R.pick([[1,0],[-1,0],[0,1],[0,-1]]),cand=[nb[0]+dr,nb[1]+dc];if(rest.some(x=>x[0]===cand[0]&&x[1]===cand[1]))continue;
+      const o=norm([...rest,cand]);if(rk.has(pkey(o))||rots(flip(base)).some(f=>pkey(f)===pkey(o)))continue;
+      const conn=(()=>{const st=[o[0]],seen=new Set([o[0].join()]);while(st.length){const [r,c]=st.pop();for(const [a,b] of [[1,0],[-1,0],[0,1],[0,-1]]){const kk=(r+a)+','+(c+b);if(!seen.has(kk)&&o.some(x=>x[0]===r+a&&x[1]===c+b)){seen.add(kk);st.push([r+a,c+b]);}}}return seen.size===o.length;})();
+      if(conn)other=o;}
     let opts=[ans];
-    if(step===0){opts.push(wrong[0]);const other=R.pick(Object.keys(POLY).filter(x=>x!==name&&POLY[x].length===POLY[name].length));opts.push(R.pick(rots(POLY[other])));}
-    else{opts.push(...wrong.slice(0,step===1?2:3));if(step===1){const other=R.pick(Object.keys(POLY).filter(x=>x!==name&&POLY[x].length===POLY[name].length));opts.push(R.pick(rots(POLY[other])));}}
-    opts=opts.slice(0,4);
+    if(step===0){if(!other)continue;opts.push(wrong[0],other);}
+    else if(step===1){if(!other)continue;opts.push(...wrong.slice(0,2),other);}
+    else opts.push(...wrong.slice(0,3));
     const keys=opts.map(pkey);if(new Set(keys).size!==keys.length)continue;
     if(keys.slice(1).some(x=>rk.has(x)))continue;
-    const col='#149fa6';
+    const col=R.pick(G2_COL);
     return {key:'G2',step,kind:'choice',prompt:'왼쪽 모양을 돌리기만 했어요 (뒤집지 않았어요). 어느 것일까요?',
       stemHTML:`<div class="g2">${polySVG(base,col)}<span class="rarr">↻</span><span class="rcard q">${blankSVG}</span></div>`,
       options:R.shuffle(opts).map(o=>({val:pkey(o),html:polySVG(o,col)})),ans:pkey(ans),ansHTML:polySVG(ans,col),answerText:`${k*90}도 돌린 모양`,
@@ -431,11 +495,12 @@ function blocksSVG(H,labels){ // H[y][x] 높이, y=0 뒷줄
 function genG4(step){
   for(let t=0;t<200;t++){
     let H;
-    if(step===0){const n=R.int(2,4);H=[Array.from({length:n},()=>R.int(1,2))];}
-    else if(step===1){const n=R.int(3,4);H=[Array.from({length:n},()=>R.int(1,3))];}
-    else{const n=R.int(2,3);const back=Array.from({length:n},()=>R.int(1,3));H=[back,back.map(()=>R.int(0,1))];}
+    // 2026-11-01: 모양을 넓힘. 쉬움 한 줄(2~5탑, 1~3층), 보통 앞뒤 두 줄, 도전 앞뒤 두 줄에 더 높고 많이(뒤가 높아 가려진 칸이 있음)
+    if(step===0){const n=R.int(2,5);H=[Array.from({length:n},()=>R.int(1,3))];}
+    else if(step===1){const n=R.int(2,4);const back=Array.from({length:n},()=>R.int(1,3));H=[back,back.map(()=>R.int(0,2))];}
+    else{const n=R.int(3,4);const back=Array.from({length:n},()=>R.int(2,4));H=[back,back.map(v=>R.int(0,v-1))];}
     const total=H.flat().reduce((a,b)=>a+b,0);
-    if(step===0&&(total<3||total>6))continue;if(step===1&&(total<6||total>10))continue;if(step===2&&(total<5||total>10||H[1].every(v=>!v)||H[0].every(v=>v===1)))continue;
+    if(step===0&&(total<3||total>9))continue;if(step===1&&(total<5||total>12||H[1].every(v=>!v)))continue;if(step===2&&(total<8||total>18||H[1].filter(v=>v).length<2))continue;
     const towers=H.flat().filter(Boolean);
     let mk={val:String(towers.length),text:'탑의 수만 세었나요? 탑마다 몇 층인지 세어 더해요.'};if(mk.val===String(total))mk=null;
     return {key:'G4',step,kind:'num',prompt:step===2?'쌓기나무는 모두 몇 개일까요? 위에 있는 쌓기나무 아래에는 보이지 않아도 쌓기나무가 받치고 있어요.':'쌓기나무는 모두 몇 개일까요?',
@@ -469,19 +534,20 @@ function genZ1(step){
     }
     const fr=R.shuffle(FRUITS).slice(0,3),[A,B,C]=fr;
     if(step===1){
-      const n=R.int(2,3),k=2,ans=n*k;
+      const n=R.int(2,4),k=R.int(2,3),ans=n*k;
       return {key:'Z1',step,kind:'num',prompt:`${A[1]} 1개와 ${B[1]} ${n}개는 무게가 같아요. ${A[1]} ${k}개는 ${B[1]} 몇 개와 같을까요?`,
         stemHTML:`<div class="sss">${seesawHTML([A[1]],Array(n).fill(B[1]),0)}${seesawHTML(Array(k).fill(A[1]),['❓'],0)}</div>`,ans:String(ans),answerText:String(ans),
         mistake:{val:String(n),text:`${A[1]}가 ${k}개예요. ${A[1]} 하나마다 ${B[1]} ${n}개씩 바꿔 넣어요.`},
         hintHTML:`<div>${A[1]} 하나를 ${B[1]} ${n}개로 바꿔 넣어 봐요.</div>`,
         solveHTML:`<div>${A[1]} 하나 = ${B[1].repeat(n)}</div><div>${A[1]}${A[1]} = ${B[1].repeat(n)} ${B[1].repeat(n)} → ${B[1]} ${ans}개</div>`};
     }
-    const n=R.int(2,3),m=R.int(2,3),ans=n*m;
-    return {key:'Z1',step,kind:'num',prompt:`${A[1]} 1개는 ${B[1]} ${n}개와, ${B[1]} 1개는 ${C[1]} ${m}개와 무게가 같아요. ${A[1]} 1개는 ${C[1]} 몇 개와 같을까요?`,
+    const n=R.int(2,4),m=R.int(2,4),q2=n*m<=8&&Math.random()<.4?2:1,ans=n*m*q2;   // 가끔은 A 2개를 물어봄
+    if(ans>24)continue;
+    return {key:'Z1',step,kind:'num',prompt:`${A[1]} 1개는 ${B[1]} ${n}개와, ${B[1]} 1개는 ${C[1]} ${m}개와 무게가 같아요. ${A[1]} ${q2}개는 ${C[1]} 몇 개와 같을까요?`,
       stemHTML:`<div class="sss">${seesawHTML([A[1]],Array(n).fill(B[1]),0)}${seesawHTML([B[1]],Array(m).fill(C[1]),0)}</div>`,ans:String(ans),answerText:String(ans),
-      mistake:n+m===ans?null:{val:String(n+m),text:`더했나요? ${B[1]} ${n}개를 하나씩 ${C[1]} ${m}개로 바꿔 넣어야 해요.`},
+      mistake:n+m===ans?null:q2===2&&n*m!==ans?{val:String(n*m),text:`${A[1]}가 ${q2}개예요. 하나일 때 ${n*m}개니까 ${q2}배 해야 해요.`}:{val:String(n+m),text:`더했나요? ${B[1]} ${n}개를 하나씩 ${C[1]} ${m}개로 바꿔 넣어야 해요.`},
       hintHTML:`<div>${A[1]}를 먼저 ${B[1]} ${n}개로 바꾸고, 그다음 ${B[1]}를 하나씩 ${C[1]}로 바꿔요.</div>`,
-      solveHTML:`<div>${A[1]} = ${B[1].repeat(n)}</div><div>${B[1]} 하나마다 ${C[1].repeat(m)} → ${Array(n).fill(C[1].repeat(m)).join(' ')}</div><div>${C[1]} ${ans}개</div>`};
+      solveHTML:`<div>${A[1]} = ${B[1].repeat(n)}</div><div>${B[1]} 하나마다 ${C[1].repeat(m)} → ${Array(n).fill(C[1].repeat(m)).join(' ')} (${C[1]} ${n*m}개)</div>${q2===2?`<div>${A[1]}가 2개니까 ${n*m} + ${n*m} = ${ans}개</div>`:`<div>${C[1]} ${ans}개</div>`}`};
   }
 }
 // 사다리 타기 (한 높이에 가로줄 여러 개 가능, 이웃한 가로줄은 같은 높이에 두지 않음)
@@ -620,7 +686,7 @@ function lineHTML(n,ti,emoji,front,back,shown){
 function genL3(step){
   const [nm,em]=R.pick(LINE_ANIMALS);let n,ti,ans,mk,prompt,hint,solve,front=0,back=0;
   const rib=`🎀리본 ${nm}`;
-  if(step===0){const f=R.int(1,4),b=R.int(1,4);n=f+b+1;ti=f;ans=n;
+  if(step===0){const f=R.int(1,5),b=R.int(1,5);n=f+b+1;ti=f;ans=n;
     prompt=`${nm}들이 한 줄로 서 있어요. ${rib} 앞에 ${J(nm,'이','가')} ${f}마리, 뒤에 ${J(nm,'이','가')} ${b}마리 있어요. ${J(nm,'은','는')} 모두 몇 마리일까요?`;
     mk={val:String(f+b),text:`${J(rib,'을','를')} 빼고 세었나요? 리본 ${nm}도 줄에 서 있어요.`};
     hint=`<div>줄을 그림으로 그려 봐요. 리본 ${nm} 앞에 ${f}마리, 뒤에 ${b}마리를 놓아요.</div>${lineHTML(n,ti,em,0,0)}`;
@@ -647,58 +713,109 @@ const clothSVG=(k,c,sm)=>`<span class="tok ${sm?'sm':''}"><svg viewBox="0 0 40 4
 const CLOTH_NAME={shirt:'윗옷',pants:'바지',hat:'모자'};
 function genK1(step){
   let cnt;
-  if(step===0)cnt=R.pick([[2,3],[3,2],[1,3],[3,1],[2,2]]);else if(step===1)cnt=R.pick([[3,3],[4,2],[2,4],[3,4],[4,3]]);else cnt=R.pick([[2,2,2],[3,2,2],[2,3,2]]);
+  if(step===0)cnt=R.pick([[2,3],[3,2],[1,3],[3,1],[2,2],[1,4],[4,1],[2,4]]);else if(step===1)cnt=R.pick([[3,3],[4,2],[2,4],[3,4],[4,3],[5,2],[2,5],[4,4],[3,5]]);else cnt=R.pick([[2,2,2],[3,2,2],[2,3,3],[3,3,3],[4,2,2],[4,3,2],[3,4,2],[2,2,4]]);
   const kinds=['shirt','pants','hat'].slice(0,cnt.length),cols=kinds.map(()=>R.shuffle(CLOTH_COL));
-  const ans=cnt.reduce((a,b)=>a*b,1),sum=cnt.reduce((a,b)=>a+b,0);
-  const stem=`<div class="closet">${kinds.map((k,i)=>`<div class="crow"><span class="cl">${CLOTH_NAME[k]} ${cnt[i]}개</span>${cols[i].slice(0,cnt[i]).map(c=>clothSVG(k,c)).join('')}</div>`).join('')}</div>`;
-  const prompt=cnt.length===2?'윗옷 하나와 바지 하나를 골라 입어요. 서로 다르게 입는 방법은 모두 몇 가지일까요?':'윗옷, 바지, 모자를 하나씩 골라요. 서로 다르게 입는 방법은 모두 몇 가지일까요?';
+  // 보통·도전의 절반: 빨래 중인 옷이 하나 있음 → 그 옷은 빼고 셈 (빼는 것을 먼저 생각해야 함)
+  const wash=step>0&&Math.random()<.5&&cnt[0]>=3?{i:0,c:cols[0][R.int(0,cnt[0]-1)]}:null;
+  const live=cnt.map((n,i)=>wash&&wash.i===i?n-1:n);
+  const ans=live.reduce((a,b)=>a*b,1),sum=cnt.reduce((a,b)=>a+b,0);
+  const stem=`<div class="closet">${kinds.map((k,i)=>`<div class="crow"><span class="cl">${CLOTH_NAME[k]} ${cnt[i]}개</span>${cols[i].slice(0,cnt[i]).map(c=>wash&&wash.i===i&&c===wash.c?`<span class="tokwrap gone">${clothSVG(k,c)}</span>`:clothSVG(k,c)).join('')}</div>`).join('')}</div>`;
+  const washTxt=wash?` 흐린 윗옷 하나는 빨래 중이라 입을 수 없어요.`:'';
+  const prompt=(cnt.length===2?'윗옷 하나와 바지 하나를 골라 입어요.':'윗옷, 바지, 모자를 하나씩 골라요.')+washTxt+' 서로 다르게 입는 방법은 모두 몇 가지일까요?';
   const outfits=[];
-  const rec=(i,acc)=>{if(i===kinds.length){outfits.push(acc);return;}for(let j=0;j<cnt[i];j++)rec(i+1,[...acc,j]);};rec(0,[]);
+  const usable=(i,j)=>!(wash&&wash.i===i&&cols[i][j]===wash.c);
+  const rec=(i,acc)=>{if(i===kinds.length){outfits.push(acc);return;}for(let j=0;j<cnt[i];j++)if(usable(i,j))rec(i+1,[...acc,j]);};rec(0,[]);
   const outfitHTML=(o,no)=>`<span class="outfit"><span class="ono">${no}</span>${o.map((j,i)=>clothSVG(kinds[i],cols[i][j],true)).join('')}</span>`;
-  const groups=[];for(let s=0;s<cnt[0];s++)groups.push(outfits.filter(o=>o[0]===s));
+  const groups=[];for(let s=0;s<cnt[0];s++)if(usable(0,s))groups.push(outfits.filter(o=>o[0]===s));
   let no=0;
-  const solve=`<div>윗옷마다 짝지을 수 있는 것을 모두 늘어놓았어요. 윗옷 하나에 ${outfits.length/cnt[0]}가지씩, 윗옷이 ${cnt[0]}개라서 ${Array(cnt[0]).fill(outfits.length/cnt[0]).join(' + ')} = ${J(ans,'이에요','예요')}.</div>
+  const solve=`<div>윗옷마다 짝지을 수 있는 것을 모두 늘어놓았어요. 윗옷 하나에 ${outfits.length/live[0]}가지씩, 입을 수 있는 윗옷이 ${live[0]}개라서 ${Array(live[0]).fill(outfits.length/live[0]).join(' + ')} = ${J(ans,'이에요','예요')}.</div>
     <div class="ogroups">${groups.map(gp=>`<div class="ogroup">${gp.map(o=>outfitHTML(o,++no)).join('')}</div>`).join('')}</div>`;
   const hint=`<div>윗옷 하나를 먼저 정해요. 이 윗옷으로 입는 방법은 몇 가지인가요?</div><div class="ogroup">${groups[0].map((o,i)=>outfitHTML(o,i+1)).join('')}</div>`;
-  let mk={val:String(sum),text:'개수를 더하기만 했나요? 윗옷 하나마다 짝지을 수 있는 것을 모두 세어야 해요.'};if(mk.val===String(ans))mk=null;
+  let mk=wash?{val:String(cnt.reduce((a,b)=>a*b,1)),text:'빨래 중인 윗옷까지 세었나요? 그 윗옷으로 입는 방법은 빼야 해요.'}:{val:String(sum),text:'개수를 더하기만 했나요? 윗옷 하나마다 짝지을 수 있는 것을 모두 세어야 해요.'};if(mk.val===String(ans))mk=null;
   return {key:'K1',step,kind:'num',prompt,stemHTML:stem,ans:String(ans),answerText:String(ans),mistake:mk,hintHTML:hint,solveHTML:solve};
 }
-function gridSVG(w,h,path,small){
+function gridSVG(w,h,path,small,mark){
   const cs=small?22:44,m=small?10:24,W=w*cs+2*m,H=h*cs+2*m;let g='';
   for(let i=0;i<=w;i++)g+=`<line x1="${m+i*cs}" y1="${m}" x2="${m+i*cs}" y2="${m+h*cs}" stroke="#cbd5e1" stroke-width="${small?2:3}"/>`;
   for(let j=0;j<=h;j++)g+=`<line x1="${m}" y1="${m+j*cs}" x2="${m+w*cs}" y2="${m+j*cs}" stroke="#cbd5e1" stroke-width="${small?2:3}"/>`;
   if(path){let x=0,y=0;const pts=[[x,y]];for(const s of path){if(s==='R')x++;else y++;pts.push([x,y]);}
     g+=`<polyline points="${pts.map(([a,b])=>(m+a*cs)+','+(m+(h-b)*cs)).join(' ')}" fill="none" stroke="#0e828a" stroke-width="${small?4:6}" stroke-linecap="round" stroke-linejoin="round" ${small?'':'stroke-dasharray="2 9"'}/>`;}
   const r=small?6:12;
+  if(mark){const [mx,my]=[m+mark.x*cs,m+(h-mark.y)*cs],rr=small?6:13;
+    g+=mark.t==='block'?`<circle cx="${mx}" cy="${my}" r="${rr}" fill="#fff" stroke="#e11d48" stroke-width="${small?2:3}"/><path d="M${mx-rr*.5} ${my-rr*.5} L${mx+rr*.5} ${my+rr*.5} M${mx+rr*.5} ${my-rr*.5} L${mx-rr*.5} ${my+rr*.5}" stroke="#e11d48" stroke-width="${small?2:3}" stroke-linecap="round"/>`
+      :`<circle cx="${mx}" cy="${my}" r="${rr}" fill="#fde047" stroke="#d97706" stroke-width="${small?2:3}"/>`;}
   g+=`<circle cx="${m}" cy="${m+h*cs}" r="${r}" fill="#22c55e"/><circle cx="${m+w*cs}" cy="${m}" r="${r}" fill="#f43f5e"/>`;
   if(!small)g+=`<text x="${m+4}" y="${m+h*cs+r+14}" font-size="12" fill="#475569">출발</text><text x="${m+w*cs-30}" y="${m-r-4}" font-size="12" fill="#475569">도착</text>`;
   return `<svg viewBox="0 ${small?0:-10} ${W} ${H+(small?0:20)}" class="${small?'gsm':'gbig'}">${g}</svg>`;
 }
 function allPaths(w,h){const o=[];const rec=(a,r,u)=>{if(r===w&&u===h){o.push(a);return;}if(r<w)rec(a+'R',r+1,u);if(u<h)rec(a+'U',r,u+1);};rec('',0,0);return o;}
+const passes=(p,x,y)=>{let a=0,b=0;if(a===x&&b===y)return true;for(const s of p){if(s==='R')a++;else b++;if(a===x&&b===y)return true;}return false;};
+// 길 찾기 (2026-11-01): 판 크기를 넓히고, 보통·도전에는 '막힌 점(✕)'이나 '꼭 지나가는 점(★)'을 둠
 function genK2(step){
-  const [w,h]=step===0?R.pick([[1,1],[1,2],[2,1]]):step===1?R.pick([[2,2],[1,3],[3,1]]):R.pick([[2,3],[3,2],[2,4]]);
-  const ps=allPaths(w,h),ans=ps.length,ex=R.pick(ps);
-  let mk={val:String(w+h),text:'가로와 세로 칸 수를 더했나요? 길을 하나씩 그려 보며 세어 봐요.'};if(mk.val===String(ans))mk=null;
-  const firstR=ps.filter(p=>p[0]==='R'),firstU=ps.filter(p=>p[0]==='U');
-  return {key:'K2',step,kind:'num',prompt:'초록 점(출발)에서 빨간 점(도착)까지 선을 따라가요. 오른쪽(→)이나 위쪽(↑)으로만 갈 수 있고, 가는 순서는 마음대로예요. 가장 짧은 길은 모두 몇 가지일까요?',
-    stemHTML:`<div class="k2"><div class="gbox">${gridSVG(w,h)}</div><div class="gex"><span class="muted">예를 들면 이런 길도 있어요</span>${gridSVG(w,h,ex)}</div></div>`,
-    ans:String(ans),answerText:String(ans),mistake:mk,
-    hintHTML:`<div>처음에 →로 가는 길과 ↑로 가는 길로 나눠서 하나씩 그려 봐요.</div>`,
-    solveHTML:`<div>처음에 →로 가는 길 ${firstR.length}가지, ↑로 가는 길 ${firstU.length}가지. 모두 ${J(ans,'이에요','예요')}.</div><div class="paths">${[...firstR,...firstU].map((p,i)=>`<span class="pth"><span class="ono">${i+1}</span>${gridSVG(w,h,p,true)}</span>`).join('')}</div>`};
+  for(let t=0;t<200;t++){
+    const [w,h]=step===0?R.pick([[1,1],[1,2],[2,1],[1,3],[3,1],[2,2]]):step===1?R.pick([[2,2],[1,3],[3,1],[2,3],[3,2],[1,4],[4,1],[2,4],[4,2],[3,3]]):R.pick([[2,3],[3,2],[3,3],[2,4],[4,2]]);
+    const mode=step===0?R.pick(['plain','plain','block']):step===1?R.pick(['plain','block','block','must']):R.pick(['plain','block','block','must']);
+    let mark=null;
+    if(mode!=='plain'){if(w<2&&h<2)continue;const x=R.int(w>1?1:0,w>1?w-1:w),y=R.int(h>1?1:0,h>1?h-1:h);if((x===0&&y===0)||(x===w&&y===h))continue;mark={t:mode==='block'?'block':'must',x,y};}
+    const all=allPaths(w,h),ps=mark?all.filter(p=>mark.t==='block'?!passes(p,mark.x,mark.y):passes(p,mark.x,mark.y)):all;
+    const ans=ps.length;if(ans<2||ans>20)continue;
+    if(mark&&ans===all.length)continue;
+    const ex=R.pick(ps);
+    let mk=mark?{val:String(all.length),text:mark.t==='block'?'✕ 점을 지나는 길까지 세었나요? 막힌 점은 지나갈 수 없어요.':'★ 점을 지나지 않는 길까지 세었나요? 꼭 ★을 지나야 해요.'}
+      :{val:String(w+h),text:'가로와 세로 칸 수를 더했나요? 길을 하나씩 그려 보며 세어 봐요.'};
+    if(mk.val===String(ans))mk=null;
+    const firstR=ps.filter(p=>p[0]==='R'),firstU=ps.filter(p=>p[0]==='U');
+    const rule=mark?(mark.t==='block'?' 빨간 ✕ 점은 막혀서 지나갈 수 없어요.':' 노란 ★ 점은 꼭 지나가야 해요.'):'';
+    return {key:'K2',step,kind:'num',prompt:`초록 점(출발)에서 빨간 점(도착)까지 선을 따라가요. 오른쪽(→)이나 위쪽(↑)으로만 갈 수 있어요.${rule} 가장 짧은 길은 모두 몇 가지일까요?`,
+      stemHTML:`<div class="k2"><div class="gbox">${gridSVG(w,h,null,false,mark)}</div><div class="gex"><span class="muted">예를 들면 이런 길도 있어요</span>${gridSVG(w,h,ex,false,mark)}</div></div>`,
+      ans:String(ans),answerText:String(ans),mistake:mk,
+      hintHTML:mark?`<div>${mark.t==='block'?'✕ 점을 지나지 않는':'★ 점을 지나는'} 길만 세어요. 처음에 →로 가는 길과 ↑로 가는 길로 나눠서 하나씩 그려 봐요.</div>`:`<div>처음에 →로 가는 길과 ↑로 가는 길로 나눠서 하나씩 그려 봐요.</div>`,
+      solveHTML:`<div>처음에 →로 가는 길 ${firstR.length}가지, ↑로 가는 길 ${firstU.length}가지. 모두 ${J(ans,'이에요','예요')}.</div><div class="paths">${[...firstR,...firstU].map((p,i)=>`<span class="pth"><span class="ono">${i+1}</span>${gridSVG(w,h,p,true,mark)}</span>`).join('')}</div>`};
+  }
 }
 const coinHTML=(v,sm)=>`<span class="coin c${v} ${sm?'sm':''}">${v}</span>`;
-function coinWays(T,coins){const out=[];const rec=(i,left,acc)=>{if(i===coins.length-1){if(left%coins[i]===0)out.push([...acc,left/coins[i]]);return;}
-  for(let k=0;k*coins[i]<=left;k++)rec(i+1,left-k*coins[i],[...acc,k]);};rec(0,T,[]);return out;}
+function coinWays(T,coins,lim,cnt){const out=[];const rec=(i,left,acc)=>{if(i===coins.length){if(left===0&&(cnt==null||acc.reduce((x,y)=>x+y,0)===cnt))out.push(acc);return;}
+  const max=Math.min(Math.floor(left/coins[i]),lim?lim[i]:99);for(let k=0;k<=max;k++)rec(i+1,left-k*coins[i],[...acc,k]);};rec(0,T,[]);return out;}
+// 동전 (2026-11-01 다시 만듦): 동전 종류·금액을 넓히고 묻는 것을 바꿈
+//  쉬움: 몇 가지 / 가장 적은 개수 (50·10원)
+//  보통: 몇 가지 (100·50·10원 또는 100·50원) / 가장 적은 개수
+//  도전: 가진 동전 수가 정해진 경우 몇 가지 / 동전 N개로 만드는 방법 몇 가지
 function genK3(step){
-  const coins=step===2?[100,50,10]:[50,10];
-  const T=step===0?R.pick([60,70,80,90,100]):step===1?R.pick([110,120,130,140,150,160]):R.pick([100,120,150,160]);
-  const ways=coinWays(T,coins),ans=ways.length;
-  const rows=ways.map(w=>w.map((k,i)=>Array(k).fill(coinHTML(coins[i],true)).join('')).join(''));
-  return {key:'K3',step,kind:'num',prompt:`${coins.map(c=>c+'원').join(', ')}짜리 동전이 많이 있어요. ${T}원을 만드는 방법은 모두 몇 가지일까요?`,
-    stemHTML:`<div class="coins">${coins.map(c=>coinHTML(c)).join('')}<span class="eq sm">→ ${T}원</span></div>`,ans:String(ans),answerText:String(ans),
-    mistake:{val:String(ans-1),text:'한 가지를 빠뜨렸나요? 큰 동전을 하나도 안 쓰는 방법도 세어요.'},
-    hintHTML:`<div>가장 큰 동전(${coins[0]}원)을 0개 쓸 때, 1개 쓸 때, 2개 쓸 때… 차례로 나눠서 세어 봐요.</div>`,
-    solveHTML:`<div>큰 동전 개수를 0개부터 차례로 바꾸며 빠짐없이 놓아 봤어요.</div><ol class="cways">${rows.map(r=>`<li>${r}</li>`).join('')}</ol>`};
+  for(let t=0;t<300;t++){
+    let coins,T,lim=null,cnt=null,mode;
+    if(step===0){coins=R.pick([[50,10],[100,10],[100,50]]);T=coins[1]===50?R.int(3,8)*50:R.int(coins[0]/10+1,coins[0]/10*3)*10;mode=R.pick(['ways','ways','fewest']);}
+    else if(step===1){if(Math.random()<.6){coins=[100,50,10];T=R.int(10,25)*10;}else{coins=R.pick([[500,100],[100,50]]);T=coins[0]===500?R.int(6,15)*100:R.int(4,10)*50;}mode=R.pick(['ways','ways','fewest']);}
+    else{coins=R.pick([[100,50,10],[500,100,50]]);const u=coins[2];T=R.int(Math.ceil(coins[0]/u),Math.floor(coins[0]*2/u))*u;
+      if(Math.random()<.5){mode='limit';lim=[R.int(1,3),R.int(2,4),R.int(3,8)];}else{mode='count';cnt=R.int(3,9);}}
+    const ways=coinWays(T,coins,lim,cnt);
+    if(!ways.length||ways.length>12)continue;
+    if(mode==='fewest'&&step===0&&T%50===0)continue;
+    const nm=coins.map(c=>c+'원').join(', ');
+    const fewest=Math.min(...ways.map(w=>w.reduce((x,y)=>x+y,0))),best=ways.find(w=>w.reduce((x,y)=>x+y,0)===fewest);
+    const ans=mode==='fewest'?fewest:ways.length;
+    if(ans<2)continue;
+    if(step===2&&ans===2&&Math.random()<.7)continue;   // 도전은 답이 2·3가지로 몰리지 않게
+    if(step===2&&ans===3&&Math.random()<.5)continue;
+    if(step===0&&ans===3&&Math.random()<.35)continue;   // 쉬움도 한 답(3)에 몰리지 않게
+    const rows=ways.map(w=>w.map((k,i)=>Array(k).fill(coinHTML(coins[i],true)).join('')).join(''));
+    const has=lim?`<div class="muted">가진 동전: ${coins.map((c,i)=>`${c}원 ${lim[i]}개`).join(', ')}</div>`:'';
+    const prompt=mode==='fewest'?`${nm}짜리 동전이 많이 있어요. ${T}원을 만들 때 동전을 가장 적게 쓰면 몇 개일까요?`
+      :mode==='limit'?`${coins.map((c,i)=>`${c}원 ${lim[i]}개`).join(', ')}를 가지고 있어요. 이 동전으로 ${T}원을 만드는 방법은 모두 몇 가지일까요?`
+      :mode==='count'?`${nm}짜리 동전이 많이 있어요. 동전 꼭 ${cnt}개로 ${T}원을 만드는 방법은 모두 몇 가지일까요?`
+      :`${nm}짜리 동전이 많이 있어요. ${T}원을 만드는 방법은 모두 몇 가지일까요?`;
+    let mk=mode==='fewest'?{val:String(Math.round(T/coins[coins.length-1])),text:'작은 동전만 썼나요? 큰 동전부터 먼저 쓰면 개수가 줄어요.'}
+      :mode==='ways'?{val:String(ans-1),text:'한 가지를 빠뜨렸나요? 큰 동전을 하나도 안 쓰는 방법도 세어요.'}
+      :mode==='limit'?{val:String(coinWays(T,coins).length),text:'가진 동전보다 많이 쓴 방법까지 세었나요? 가진 개수 안에서만 써요.'}
+      :{val:String(coinWays(T,coins).length),text:`동전 개수를 확인했나요? 꼭 ${cnt}개인 방법만 세어요.`};
+    if(mk.val===String(ans)||+mk.val<0)mk=null;
+    const hint=mode==='fewest'?`<div>큰 동전(${coins[0]}원)을 넣을 수 있는 만큼 먼저 넣고, 남은 돈을 다음 동전으로 채워 봐요.</div>`
+      :`<div>가장 큰 동전(${coins[0]}원)을 0개 쓸 때, 1개 쓸 때, 2개 쓸 때… 차례로 나눠서 세어 봐요.${mode==='count'?` 그리고 동전이 모두 ${cnt}개인지 확인해요.`:''}</div>`;
+    const solve=mode==='fewest'?`<div>큰 동전부터 쓰면 가장 적어요: ${best.map((k,i)=>k?`${coins[i]}원 ${k}개`:'').filter(Boolean).join(' + ')} = ${fewest}개</div><div class="coins">${best.map((k,i)=>Array(k).fill(coinHTML(coins[i],true)).join('')).join('')}</div>`
+      :`<div>큰 동전 개수를 0개부터 차례로 바꾸며 빠짐없이 놓아 봤어요.</div><ol class="cways">${rows.map(r=>`<li>${r}</li>`).join('')}</ol>`;
+    return {key:'K3',step,kind:'num',prompt,
+      stemHTML:`<div class="coins">${coins.map(c=>coinHTML(c)).join('')}<span class="eq sm">→ ${T}원</span></div>${has}`,ans:String(ans),answerText:String(ans),
+      mistake:mk,hintHTML:hint,solveHTML:solve};
+  }
 }
 
 // ===================== 스무고개 =====================
@@ -727,21 +844,30 @@ const T_ITEMS=[
  {n:'거북이',e:'🐢',k:'동물',legs:4,fly:false,water:null,big:null,feather:false,sea:null},
  {n:'개미',e:'🐜',k:'동물',bug:true,legs:6,fly:null,water:false,big:false,feather:false},
  {n:'문어',e:'🐙',k:'동물',legs:8,fly:false,water:true,big:null,feather:false,sea:null},
- {n:'자동차',e:'🚗',k:'탈것',wheels:4,fly:false,road:true,rail:false,sea:false,pedal:false,many:false,sound:'빵빵'},
- {n:'자전거',e:'🚲',k:'탈것',wheels:2,fly:false,road:true,rail:false,sea:false,pedal:true,many:false},
- {n:'버스',e:'🚌',k:'탈것',wheels:null,fly:false,road:true,rail:false,sea:false,pedal:false,many:true},
- {n:'기차',e:'🚂',k:'탈것',wheels:null,fly:false,road:false,rail:true,sea:false,pedal:false,many:true,sound:'칙칙폭폭'},
- {n:'비행기',e:'✈️',k:'탈것',wheels:null,fly:true,road:false,rail:false,sea:false,pedal:false,many:true},
- {n:'헬리콥터',e:'🚁',k:'탈것',wheels:null,fly:true,road:false,rail:false,sea:false,pedal:false,many:null},
- {n:'트럭',e:'🚚',k:'탈것',wheels:null,fly:false,road:true,rail:false,sea:false,pedal:false,many:false},
- {n:'배',e:'⛵',k:'탈것',wheels:0,fly:false,road:false,rail:false,sea:true,pedal:false,many:null},
+ {n:'자동차',e:'🚗',k:'탈것',wheels:4,fly:false,road:true,rail:false,sea:false,pedal:false,many:false,motor:true,wings:false,tunnel:false,sound:'빵빵'},
+ {n:'자전거',e:'🚲',k:'탈것',wheels:2,fly:false,road:true,rail:false,sea:false,pedal:true,many:false,motor:false,wings:false,tunnel:false,sound:'따르릉'},
+ {n:'오토바이',e:'🏍️',k:'탈것',wheels:2,fly:false,road:true,rail:false,sea:false,pedal:false,many:false,motor:true,wings:false,tunnel:false,sound:'부릉부릉'},
+ {n:'구급차',e:'🚑',k:'탈것',wheels:4,fly:false,road:true,rail:false,sea:false,pedal:false,many:false,motor:true,wings:false,tunnel:false,sound:'삐뽀삐뽀'},
+ {n:'버스',e:'🚌',k:'탈것',wheels:null,fly:false,road:true,rail:false,sea:false,pedal:false,many:true,motor:true,wings:false,tunnel:false},
+ {n:'트럭',e:'🚚',k:'탈것',wheels:null,fly:false,road:true,rail:false,sea:false,pedal:false,many:false,motor:true,wings:false,tunnel:false},
+ {n:'기차',e:'🚂',k:'탈것',wheels:null,fly:false,road:false,rail:true,sea:false,pedal:false,many:true,motor:true,wings:false,tunnel:null,sound:'칙칙폭폭'},
+ {n:'지하철',e:'🚇',k:'탈것',wheels:null,fly:false,road:false,rail:true,sea:false,pedal:false,many:true,motor:true,wings:false,tunnel:true},
+ {n:'비행기',e:'✈️',k:'탈것',wheels:null,fly:true,road:false,rail:false,sea:false,pedal:false,many:true,motor:true,wings:true,tunnel:false},
+ {n:'헬리콥터',e:'🚁',k:'탈것',wheels:null,fly:true,road:false,rail:false,sea:false,pedal:false,many:false,motor:true,wings:null,tunnel:false},
+ {n:'배',e:'🚢',k:'탈것',wheels:0,fly:false,road:false,rail:false,sea:true,pedal:false,many:true,motor:true,wings:false,tunnel:false,sound:'뿌우'},
  {n:'사과',e:'🍎',k:'음식',color:'빨강',round:true,long:false,tree:true,under:false,peel:null,huge:false},
  {n:'바나나',e:'🍌',k:'음식',color:'노랑',round:false,long:true,tree:null,under:false,peel:true,huge:false},
  {n:'수박',e:'🍉',k:'음식',color:'초록',round:true,long:false,tree:false,under:false,peel:null,huge:true},
  {n:'당근',e:'🥕',k:'음식',color:'주황',round:false,long:true,tree:false,under:true,peel:null,huge:false},
  {n:'귤',e:'🍊',k:'음식',color:'주황',round:true,long:false,tree:true,under:false,peel:true,huge:false},
  {n:'포도',e:'🍇',k:'음식',color:'보라',round:null,long:false,tree:null,under:false,peel:null,huge:false},
- {n:'딸기',e:'🍓',k:'음식',color:'빨강',round:null,long:false,tree:false,under:false,peel:false,huge:false}];
+ {n:'딸기',e:'🍓',k:'음식',color:'빨강',round:null,long:false,tree:false,under:false,peel:false,huge:false},
+ {n:'토마토',e:'🍅',k:'음식',color:'빨강',round:true,long:false,tree:false,under:false,peel:false,huge:false},
+ {n:'체리',e:'🍒',k:'음식',color:'빨강',round:true,long:false,tree:true,under:false,peel:false,huge:false},
+ {n:'옥수수',e:'🌽',k:'음식',color:'노랑',round:false,long:true,tree:false,under:false,peel:true,huge:false},
+ {n:'오이',e:'🥒',k:'음식',color:'초록',round:false,long:true,tree:false,under:false,peel:null,huge:false},
+ {n:'감자',e:'🥔',k:'음식',color:'갈색',round:null,long:false,tree:false,under:true,peel:true,huge:false},
+ {n:'복숭아',e:'🍑',k:'음식',color:'분홍',round:true,long:false,tree:true,under:false,peel:null,huge:false}];
 const T_CLUES=[
  {a:'k',val:true,text:v=>({동물:'동물이에요.',탈것:'사람이 타고 다니는 거예요.',음식:'먹는 거예요.'})[v]},
  {a:'bug',T:'곤충이에요.',def:{동물:false,탈것:false,음식:false}},
@@ -757,7 +883,10 @@ const T_CLUES=[
  {a:'sea',T:'물 위를 다녀요.',def:{음식:false}},
  {a:'pedal',T:'발로 페달을 밟아서 가요.',def:{동물:false,음식:false}},
  {a:'many',T:'한 번에 사람이 많이 타요.',def:{동물:false,음식:false}},
- {a:'color',val:true,text:v=>({빨강:'빨간색이에요.',노랑:'노란색이에요.',초록:'겉이 초록색이에요.',주황:'주황색이에요.',보라:'보라색이에요.'})[v],def:{}},
+ {a:'motor',T:'엔진이나 모터로 움직여요.',F:'엔진 없이 사람이 힘을 써서 움직여요.',def:{동물:false,음식:false},negSame:true},
+ {a:'wings',T:'날개가 있어요.',F:'날개가 없어요.',def:{음식:false},negSame:true},
+ {a:'tunnel',T:'땅속 굴로 다녀요.',def:{음식:false}},
+ {a:'color',val:true,text:v=>({빨강:'빨간색이에요.',노랑:'노란색이에요.',초록:'겉이 초록색이에요.',주황:'주황색이에요.',보라:'보라색이에요.',갈색:'겉이 갈색이에요.',분홍:'분홍색이에요.'})[v],def:{}},
  {a:'round',T:'동글동글해요.',def:{}},
  {a:'long',T:'길쭉해요.',def:{}},
  {a:'tree',T:'나무에 열려요.',def:{동물:false,탈것:false}},
@@ -775,33 +904,39 @@ function clueCands(target){
   return out;
 }
 // 단서 k개면 하나만 남고(필요한 단서), 그 뒤에 확인용 단서를 더 붙임
-// 답(target)을 먼저 고르게 뽑고, 그 답으로 문제를 만들 수 있을 때까지 여러 번 시도 (만들기 쉬운 답만 자주 나오지 않게)
+// 답(target)을 먼저 고르게 뽑고, 보기 묶음을 여러 번 바꿔 가며 단서 조합을 빠짐없이 찾아봄
+// (무작위로만 찾으면 단서를 만들기 쉬운 답만 나오고, 도전 단계는 한 가지 답만 나오던 문제가 있었음)
+const T_KINDS=['동물','탈것','음식'];
 function genT1(step){
+  for(let pass=0;pass<4;pass++){
+    const kind=R.pick(T_KINDS);   // 종류를 먼저 고르게 → 탈것·음식도 동물만큼 나옴
+    for(const target of R.shuffle(T_ITEMS.filter(x=>x.k===kind)).slice(0,6)){const q=genT1For(step,target);if(q)return q;}
+  }
   for(const target of R.shuffle(T_ITEMS.slice())){const q=genT1For(step,target);if(q)return q;}
   return genT1For(0,R.pick(T_ITEMS));
 }
+function combos(arr,k,cap){const out=[];const rec=(i,acc)=>{if(out.length>=cap)return;if(acc.length===k){out.push(acc.slice());return;}for(let j=i;j<arr.length;j++){acc.push(arr[j]);rec(j+1,acc);acc.pop();}};rec(0,[]);return out;}
 function genT1For(step,target){
   const nOpt=step===0?6:8;
-  for(let t=0;t<400;t++){
-    const k=step===0?3:step===1?R.pick([3,4]):(t<250?R.pick([4,4,5]):3);
+  for(let t=0;t<12;t++){
+    const k=step===0?3:step===1?R.pick([3,4]):R.pick([4,4,5]);
     let others;
     if(step===0)others=R.shuffle(T_ITEMS.filter(x=>x!==target)).slice(0,nOpt-1);
     else if(step===1){const same=R.shuffle(T_ITEMS.filter(x=>x!==target&&x.k===target.k)).slice(0,R.int(3,5)),diff=R.shuffle(T_ITEMS.filter(x=>x.k!==target.k)).slice(0,nOpt-1-same.length);others=[...same,...diff];}
     else{const same=R.shuffle(T_ITEMS.filter(x=>x!==target&&x.k===target.k)).slice(0,nOpt-1);others=same.length===nOpt-1?same:[...same,...R.shuffle(T_ITEMS.filter(x=>x.k!==target.k)).slice(0,nOpt-1-same.length)];}
     if(others.length!==nOpt-1)continue;
     const opts=[target,...others],allSame=opts.every(x=>x.k===target.k);
-    const cands=clueCands(target).filter(c=>opts.every(x=>c.test(x)!==null)&&(!c.negSame||allSame)&&(step<2||!c.sound));
+    const cands=R.shuffle(clueCands(target).filter(c=>opts.every(x=>c.test(x)!==null)&&(!c.negSame||allSame)&&(step<2||!c.sound)));
     if(cands.length<k)continue;
-    for(let s=0;s<80;s++){
-      const pick=R.shuffle(cands).slice(0,k);if(new Set(pick.map(c=>c.id.replace('-',''))).size!==k)continue;
-      const elim=c=>opts.filter(x=>!c.test(x)).length;
+    const elim=c=>opts.filter(x=>!c.test(x)).length;
+    for(const pick of combos(cands,k,600)){
+      if(new Set(pick.map(c=>c.id.replace('-',''))).size!==k)continue;
       pick.sort((a,b)=>(a.id==='k'?-1:0)-(b.id==='k'?-1:0)||elim(a)-elim(b)||(a.sound?1:0)-(b.sound?1:0));
       let rem=opts.slice(),good=true;
       for(let i=0;i<pick.length;i++){const before=rem.length;rem=rem.filter(x=>pick[i].test(x));if(rem.length===before){good=false;break;}if(i<pick.length-1&&rem.length<2){good=false;break;}}
       if(!good||rem.length!==1||rem[0]!==target)continue;
       const used=new Set(pick.map(c=>c.id.replace('-','')));
-      let extra=R.shuffle(cands.filter(c=>!used.has(c.id.replace('-',''))&&elim(c)>0)).slice(0,2);
-      if(!extra.length&&s<60)continue;
+      const extra=R.shuffle(cands.filter(c=>!used.has(c.id.replace('-',''))&&elim(c)>0)).slice(0,2);
       const clues=[...pick,...extra];
       const o=R.shuffle(opts);
       return {key:'T1',step,kind:'twenty',prompt:'{{NAME_GA}} 무엇을 생각하고 있을까요? 단서를 열고, 아닌 것을 눌러 지워요. 하나만 남으면 "이거예요!"를 눌러요.',
@@ -810,6 +945,7 @@ function genT1For(step,target){
         ans:target.n,ansHTML:`<b>${target.e} ${target.n}</b>`,answerText:target.e+' '+target.n+` (단서 ${k}개면 하나만 남아요)`,mistake:null};
     }
   }
+  return null;
 }
 function twentySolve(q,upto){
   const n=Math.max(upto,q.need);const gone=new Set();const rows=[];
