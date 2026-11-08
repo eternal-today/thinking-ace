@@ -894,18 +894,70 @@ const T_CLUES=[
  {a:'peel',T:'껍질을 까서 먹어요.',def:{동물:false,탈것:false}},
  {a:'huge',T:'한 손으로 들기 어려울 만큼 커요.',def:{}}];
 function tv(x,c){if(c.a==='k'&&x.bug!==undefined)return null;if(x[c.a]!==undefined)return x[c.a];const d=c.def&&c.def[x.k];return d===undefined?null:d;}
-function clueCands(target){
+// '아니에요' 단서 (원래는 '~해요'만 있던 성질)
+const T_NEG={bug:'곤충이 아니에요.',road:'도로를 달리지 않아요.',rail:'철길 위를 달리지 않아요.',sea:'물 위를 다니지 않아요.',pedal:'페달이 없어요.',many:'한 번에 많은 사람이 타지는 않아요.',tunnel:'땅속 굴로 다니지 않아요.',round:'동글동글하지 않아요.',long:'길쭉하지 않아요.',tree:'나무에 열리지 않아요.',under:'땅속에서 자라지 않아요.',peel:'껍질째 먹어요.',huge:'한 손으로 들 수 있어요.'};
+const T_COLN={빨강:'빨간색',노랑:'노란색',초록:'초록색',주황:'주황색',보라:'보라색',갈색:'갈색',분홍:'분홍색'};
+const T_KN=['','한','두','세','네','다섯'];
+const T_KNEG={동물:'동물이 아니에요.',탈것:'타는 것이 아니에요.',음식:'먹는 것이 아니에요.'};
+const roOf=ch=>{const c=(ch.charCodeAt(0)-0xAC00)%28;return c===0||c===8?'로':'으로';};
+function negVal(a,v){
+  if(a==='legs')return v?`다리가 ${v}개는 아니에요.`:null;
+  if(a==='wheels')return v?`바퀴가 ${v}개는 아니에요.`:null;
+  if(a==='color')return T_COLN[v]?`${T_COLN[v]}이 아니에요.`:null;
+  if(a==='k')return T_KNEG[v]||null;
+  return null;
+}
+// 답(target)에 맞는 단서 후보. step이 오를수록 '아니에요'·비교·이름 단서가 더 섞임
+function clueCands(target,opts,step){
   const out=[];
+  const add=(fam,text,test,o={})=>out.push({id:fam,fam,text,test,...o});
   for(const c of T_CLUES){const v=tv(target,c);if(v===null||v===undefined)continue;
     if(c.a==='legs'&&target.k!=='동물')continue;if(c.a==='wheels'&&target.k!=='탈것')continue;
-    if(c.val){if(c.sound&&!v)continue;const tx=c.text(v);if(!tx)continue;out.push({id:c.a,text:tx,test:x=>{const w=tv(x,c);return w===null?null:w===v;},sound:!!c.sound});}
-    else if(v===true&&c.T)out.push({id:c.a,text:c.T,test:x=>{const w=tv(x,c);return w===null?null:w===true;}});
-    else if(v===false&&c.F)out.push({id:c.a+'-',text:c.F,negSame:!!c.negSame,test:x=>{const w=tv(x,c);return w===null?null:w===false;}});}
+    const same=x=>{const w=tv(x,c);return w===null?null:w===v;};
+    if(c.val){
+      if(c.sound&&!v)continue;const tx=c.text(v);if(tx)add(c.a,tx,same,{sound:!!c.sound});
+      if(!c.sound){
+        const vals=[...new Set(opts.map(x=>tv(x,c)).filter(w=>w!==null&&w!==undefined&&w!==v))];
+        for(const ov of vals){const nt=negVal(c.a,ov);if(nt)add(c.a,nt,x=>{const w=tv(x,c);return w===null?null:w!==ov;},{neg:true});}
+      }
+      if(step>=1&&(c.a==='legs'||c.a==='wheels')){const w0=c.a==='legs'?'다리':'바퀴';
+        for(const th of [0,2,4,6]){
+          if(v>th)add(c.a,th===0?`${w0}가 있어요.`:`${w0}가 ${th}개보다 많아요.`,x=>{const w=tv(x,c);return w===null?null:w>th;},{cmp:true});
+          else if(v<th&&th>0)add(c.a,`${w0}가 ${th}개보다 적어요.`,x=>{const w=tv(x,c);return w===null?null:w<th;},{cmp:true});}}
+    }
+    else if(v===true&&c.T)add(c.a,c.T,same);
+    else if(v===false&&c.F)add(c.a,c.F,same,{negSame:!!c.negSame});
+    else if(v===false&&T_NEG[c.a])add(c.a,T_NEG[c.a],same,{negSame:true,neg:true});
+  }
+  // 이름 단서
+  const nm=target.n,L=nm.length,f=nm[0],e=nm[L-1];
+  if(T_KN[L])add('nlen',`이름이 ${T_KN[L]} 글자예요.`,x=>x.n.length===L);
+  if(step>=1){
+    if(opts.filter(x=>x.n[0]===f).length>=2)add('nstart',`이름이 '${f}'${roOf(f)} 시작해요.`,x=>x.n[0]===f);
+    if(opts.filter(x=>x.n[x.n.length-1]===e).length>=2)add('nend',`이름이 '${e}'${roOf(e)} 끝나요.`,x=>x.n[x.n.length-1]===e);
+    for(let th=1;th<=4;th++){
+      if(L>th)add('nlen',`이름이 ${T_KN[th]} 글자보다 길어요.`,x=>x.n.length>th,{cmp:true});
+      else if(L<th)add('nlen',`이름이 ${T_KN[th]} 글자보다 짧아요.`,x=>x.n.length<th,{cmp:true});}
+  }
   return out;
 }
-// 단서 k개면 하나만 남고(필요한 단서), 그 뒤에 확인용 단서를 더 붙임
+// 도전: '둘 중 하나는 맞아요' (하나는 답에 맞고 하나는 답에 틀린 단서. 둘 다 맞는 보기는 없게 해서 뜻이 하나로만 읽히게)
+function orClues(target,opts,trues,step){
+  const ok=c=>opts.every(x=>c.test(x)!==null)&&(!c.negSame||opts.every(x=>x.k===target.k))&&!c.sound;
+  const falses=[];
+  for(const o of opts){if(o===target)continue;for(const c of clueCands(o,opts,step))if(ok(c)&&c.test(target)===false)falses.push(c);}
+  const out=[],strip=s=>s.replace(/\.$/,'');
+  for(const t of R.shuffle(trues.slice()).slice(0,8))for(const fc of R.shuffle(falses).slice(0,6)){
+    if(t.fam===fc.fam)continue;if(opts.some(x=>t.test(x)&&fc.test(x)))continue;
+    const [p,q]=R.shuffle([t,fc]);
+    out.push({id:'or',fam:'or',parts:[t.fam,fc.fam],text:`둘 중 하나만 맞아요: 「${strip(p.text)}」 또는 「${strip(q.text)}」.`,test:x=>t.test(x)||fc.test(x),or:true});
+    if(out.length>=6)return out;
+  }
+  return out;
+}
+// 단서 k개를 차례로 열면 하나만 남고(필요한 단서), 그 뒤에 확인용 단서를 더 붙임
+// 순서는 판마다 섞음. 도전은 단서 하나로 2개 이하까지 줄지 않고, 단서마다 1~3개씩만 지워서 여러 단서를 합쳐야 답이 나옴
 // 답(target)을 먼저 고르게 뽑고, 보기 묶음을 여러 번 바꿔 가며 단서 조합을 빠짐없이 찾아봄
-// (무작위로만 찾으면 단서를 만들기 쉬운 답만 나오고, 도전 단계는 한 가지 답만 나오던 문제가 있었음)
 const T_KINDS=['동물','탈것','음식'];
 function genT1(step){
   for(let pass=0;pass<4;pass++){
@@ -919,25 +971,35 @@ function combos(arr,k,cap){const out=[];const rec=(i,acc)=>{if(out.length>=cap)r
 function genT1For(step,target){
   const nOpt=step===0?6:8;
   for(let t=0;t<12;t++){
-    const k=step===0?3:step===1?R.pick([3,4]):R.pick([4,4,5]);
+    const k=step===0?3:step===1?R.pick([3,4]):R.pick([4,5,5,6]);
     let others;
     if(step===0)others=R.shuffle(T_ITEMS.filter(x=>x!==target)).slice(0,nOpt-1);
     else if(step===1){const same=R.shuffle(T_ITEMS.filter(x=>x!==target&&x.k===target.k)).slice(0,R.int(3,5)),diff=R.shuffle(T_ITEMS.filter(x=>x.k!==target.k)).slice(0,nOpt-1-same.length);others=[...same,...diff];}
     else{const same=R.shuffle(T_ITEMS.filter(x=>x!==target&&x.k===target.k)).slice(0,nOpt-1);others=same.length===nOpt-1?same:[...same,...R.shuffle(T_ITEMS.filter(x=>x.k!==target.k)).slice(0,nOpt-1-same.length)];}
     if(others.length!==nOpt-1)continue;
     const opts=[target,...others],allSame=opts.every(x=>x.k===target.k);
-    const cands=R.shuffle(clueCands(target).filter(c=>opts.every(x=>c.test(x)!==null)&&(!c.negSame||allSame)&&(step<2||!c.sound)));
-    if(cands.length<k)continue;
     const elim=c=>opts.filter(x=>!c.test(x)).length;
-    for(const pick of combos(cands,k,600)){
-      if(new Set(pick.map(c=>c.id.replace('-',''))).size!==k)continue;
-      pick.sort((a,b)=>(a.id==='k'?-1:0)-(b.id==='k'?-1:0)||elim(a)-elim(b)||(a.sound?1:0)-(b.sound?1:0));
-      let rem=opts.slice(),good=true;
-      for(let i=0;i<pick.length;i++){const before=rem.length;rem=rem.filter(x=>pick[i].test(x));if(rem.length===before){good=false;break;}if(i<pick.length-1&&rem.length<2){good=false;break;}}
-      if(!good||rem.length!==1||rem[0]!==target)continue;
-      const used=new Set(pick.map(c=>c.id.replace('-','')));
-      const extra=R.shuffle(cands.filter(c=>!used.has(c.id.replace('-',''))&&elim(c)>0)).slice(0,2);
-      const clues=[...pick,...extra];
+    const all=clueCands(target,opts,step).filter(c=>opts.every(x=>c.test(x)!==null)&&(!c.negSame||allSame)&&(step<2||!c.sound)&&elim(c)>0);
+    let cands=all;
+    if(step===2){cands=all.filter(c=>elim(c)<=nOpt-3);cands=[...cands,...orClues(target,opts,cands,step).filter(c=>elim(c)>0&&elim(c)<=nOpt-3)];}
+    cands=R.shuffle(cands).slice(0,18);
+    if(cands.length<k)continue;
+    const maxCut=step===2?3:nOpt;
+    for(const pick of combos(cands,k,800)){
+      const fams=pick.flatMap(c=>c.parts?['or',...c.parts]:[c.fam]);if(new Set(fams).size!==fams.length)continue;   // '둘 중 하나' 속 단서가 따로 또 나오지 않게
+      let found=null;
+      for(let o=0;o<(step===2?6:3)&&!found;o++){
+        const ord=R.shuffle(pick.slice());
+        const ki=ord.findIndex(c=>c.fam==='k'&&!c.neg);if(ki>0)ord.unshift(ord.splice(ki,1)[0]);   // 종류 단서는 맨 앞
+        let rem=opts.slice(),good=true;
+        for(let i=0;i<ord.length;i++){const before=rem.length;rem=rem.filter(x=>ord[i].test(x));const cut=before-rem.length;
+          if(cut<1||cut>maxCut){good=false;break;}if(i<ord.length-1&&rem.length<2){good=false;break;}}
+        if(good&&rem.length===1&&rem[0]===target)found=ord;
+      }
+      if(!found)continue;
+      const used=new Set(found.flatMap(c=>c.parts?['or',...c.parts]:[c.fam]));
+      const extra=R.shuffle(all.filter(c=>!used.has(c.fam))).slice(0,2);
+      const clues=[...found,...extra];
       const o=R.shuffle(opts);
       return {key:'T1',step,kind:'twenty',prompt:'{{NAME_GA}} 무엇을 생각하고 있을까요? 단서를 열고, 아닌 것을 눌러 지워요. 하나만 남으면 "이거예요!"를 눌러요.',
         clues:clues.map(c=>c.text),need:k,items:o,elim:clues.map(c=>o.map((x,i)=>!c.test(x)?i:-1).filter(i=>i>=0)),
